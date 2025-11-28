@@ -11,6 +11,7 @@ import { toast } from "sonner";
 import { useRealtimeMatch } from "@/hooks/useRealtimeMatch";
 import { useInventory } from "@/hooks/useInventory";
 import { useGameSettings } from "@/hooks/useGameSettings";
+import { useUserPresence } from "@/hooks/useUserPresence";
 import { ArrowLeft, Users } from "lucide-react";
 
 const MultiplayerGame = () => {
@@ -22,11 +23,15 @@ const MultiplayerGame = () => {
   const [match, setMatch] = useState<any>(null);
   const [myScore, setMyScore] = useState(0);
   const [opponentScore, setOpponentScore] = useState(0);
-  const { opponentState, broadcastGameState } = useRealtimeMatch(matchId || null);
+  const { opponentState, broadcastPaddleMove, broadcastScoreUpdate } = useRealtimeMatch(matchId || null);
+  const { updatePresence } = useUserPresence();
 
   useEffect(() => {
     if (!matchId || !user) return;
     fetchMatch();
+
+    // Update presence to show in game
+    updatePresence({ in_game: true, room_id: matchId });
 
     const channel = supabase
       .channel(`match_updates:${matchId}`)
@@ -45,6 +50,8 @@ const MultiplayerGame = () => {
       .subscribe();
 
     return () => {
+      // Update presence to show not in game when leaving
+      updatePresence({ in_game: false, room_id: undefined });
       supabase.removeChannel(channel);
     };
   }, [matchId, user]);
@@ -87,13 +94,8 @@ const MultiplayerGame = () => {
         })
         .eq("id", matchId);
 
-      broadcastGameState({
-        ballX: 0,
-        ballY: 0,
-        paddleX: 0,
-        score,
-        timestamp: Date.now(),
-      });
+      // Broadcast score update
+      broadcastScoreUpdate(score);
     } catch (error) {
       console.error("Error updating score:", error);
     }
@@ -196,6 +198,8 @@ const MultiplayerGame = () => {
               onCoinCollect={() => {}}
               equippedItems={equippedItems}
               enablePowerUps={settings.powerUps.enabled && settings.powerUps.multiplayer}
+              onPaddleMove={broadcastPaddleMove}
+              opponentPaddleX={opponentState?.paddleX}
             />
           </div>
           <div>
