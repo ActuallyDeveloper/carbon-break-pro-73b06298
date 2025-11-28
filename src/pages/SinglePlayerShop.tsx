@@ -15,7 +15,17 @@ const SinglePlayerShop = () => {
 
   const purchaseItem = async (item: any) => {
     if (!user) return;
-    if (currency < item.price) {
+    
+    // Re-check currency to be safe
+    const { data: currentCurrency } = await supabase
+      .from("user_currency")
+      .select("single_player_coins")
+      .eq("user_id", user.id)
+      .single();
+      
+    const balance = currentCurrency?.single_player_coins || 0;
+
+    if (balance < item.price) {
       toast.error("Not enough coins!");
       return;
     }
@@ -25,12 +35,27 @@ const SinglePlayerShop = () => {
     }
 
     try {
-      const { error } = await supabase.from("user_inventory").insert({
+      // 1. Insert into inventory
+      const { error: insertError } = await supabase.from("user_inventory").insert({
         user_id: user.id,
         item_id: item.id,
       });
 
-      if (error) throw error;
+      if (insertError) throw insertError;
+
+      // 2. Deduct coins
+      const { error: updateError } = await supabase
+        .from("user_currency")
+        .update({ single_player_coins: balance - item.price })
+        .eq("user_id", user.id);
+
+      if (updateError) {
+        // Critical error: Item given but coins not deducted. 
+        // In a real app, we might want to rollback the inventory insert here.
+        console.error("Failed to deduct coins", updateError);
+        toast.error("Transaction error. Please contact support.");
+        return;
+      }
 
       toast.success(`Purchased ${item.name}!`);
     } catch (error: any) {

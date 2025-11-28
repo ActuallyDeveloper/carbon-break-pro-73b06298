@@ -15,7 +15,17 @@ const MultiplayerShop = () => {
 
   const purchaseItem = async (item: any) => {
     if (!user) return;
-    if (currency < item.price) {
+
+    // Re-check currency
+    const { data: currentCurrency } = await supabase
+      .from("user_currency")
+      .select("multiplayer_coins")
+      .eq("user_id", user.id)
+      .single();
+      
+    const balance = currentCurrency?.multiplayer_coins || 0;
+
+    if (balance < item.price) {
       toast.error("Not enough coins!");
       return;
     }
@@ -25,12 +35,25 @@ const MultiplayerShop = () => {
     }
 
     try {
-      const { error } = await supabase.from("user_inventory").insert({
+      // 1. Insert into inventory
+      const { error: insertError } = await supabase.from("user_inventory").insert({
         user_id: user.id,
         item_id: item.id,
       });
 
-      if (error) throw error;
+      if (insertError) throw insertError;
+
+      // 2. Deduct coins
+      const { error: updateError } = await supabase
+        .from("user_currency")
+        .update({ multiplayer_coins: balance - item.price })
+        .eq("user_id", user.id);
+
+      if (updateError) {
+        console.error("Failed to deduct coins", updateError);
+        toast.error("Transaction error. Please contact support.");
+        return;
+      }
 
       toast.success(`Purchased ${item.name}!`);
     } catch (error: any) {

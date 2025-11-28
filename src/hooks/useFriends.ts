@@ -170,11 +170,13 @@ export const useFriends = () => {
 
     try {
       // Check if connection already exists
-      const { data: existing } = await supabase
+      const { data: existing, error: checkError } = await supabase
         .from('social_connections')
         .select('*')
         .or(`and(user_id.eq.${user.id},friend_id.eq.${friendId}),and(user_id.eq.${friendId},friend_id.eq.${user.id})`)
-        .single();
+        .maybeSingle();
+
+      if (checkError) throw checkError;
 
       if (existing) {
         toast.error('Connection already exists');
@@ -189,9 +191,18 @@ export const useFriends = () => {
           status: 'pending',
         });
 
-      if (error) throw error;
+      if (error) {
+        if (error.code === '23505') { // Unique violation
+           toast.error('Request already sent');
+        } else {
+           throw error;
+        }
+        return;
+      }
+      
       toast.success('Friend request sent!');
     } catch (error: any) {
+      console.error("Friend request error:", error);
       toast.error(error.message || 'Failed to send request');
     } finally {
       setLoading(false);

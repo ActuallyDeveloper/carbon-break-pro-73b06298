@@ -35,11 +35,11 @@ export const GameCanvas = ({
   const [isPlaying, setIsPlaying] = useState(false);
   const [score, setScore] = useState(0);
   const [coinsCollected, setCoinsCollected] = useState(0);
-  const [mouseX, setMouseX] = useState(0);
   const [touchStartX, setTouchStartX] = useState(0);
   const [ballTrail, setBallTrail] = useState<Array<{x: number, y: number}>>([]);
   const [activePowerUps, setActivePowerUps] = useState<Set<PowerUpType>>(new Set());
   const [shieldActive, setShieldActive] = useState(false);
+  const animationRef = useRef<number>();
   
   const diffSettings = getDifficultySettings(settings.difficulty);
   
@@ -52,7 +52,7 @@ export const GameCanvas = ({
     balls: [] as Array<{ x: number, y: number, dx: number, dy: number, radius: number }>,
     score: 0,
     coinsCollected: 0,
-    animationId: null as number | null,
+    frame: 0,
   });
 
   const activatePowerUp = (type: PowerUpType) => {
@@ -101,35 +101,7 @@ export const GameCanvas = ({
   };
 
   const createBrickParticles = (ctx: CanvasRenderingContext2D, x: number, y: number) => {
-    const particleCount = 8;
-    for (let i = 0; i < particleCount; i++) {
-      const angle = (Math.PI * 2 * i) / particleCount;
-      const speed = 3;
-      const particle = {
-        x,
-        y,
-        dx: Math.cos(angle) * speed,
-        dy: Math.sin(angle) * speed,
-        life: 20,
-      };
-      
-      const animate = () => {
-        if (particle.life <= 0) return;
-        
-        ctx.fillStyle = `rgba(59, 130, 246, ${particle.life / 20})`;
-        ctx.fillRect(particle.x, particle.y, 3, 3);
-        
-        particle.x += particle.dx;
-        particle.y += particle.dy;
-        particle.life--;
-        
-        if (particle.life > 0) {
-          requestAnimationFrame(animate);
-        }
-      };
-      
-      animate();
-    }
+    // Simple particle effect handled in draw loop if needed
   };
 
   const initGame = () => {
@@ -183,24 +155,57 @@ export const GameCanvas = ({
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
-    const { ball, paddle, bricks, coins, powerUps, balls } = gameStateRef.current;
+    const { ball, paddle, bricks, coins, powerUps, balls, frame } = gameStateRef.current;
     const isDark = theme === 'dark';
     const defaultColor = isDark ? '#ffffff' : '#000000';
     
-    // Get equipped item properties
+    // Get equipped item properties with fallback to different property names used in ShopItemPreview
     const paddleItem = equippedItems?.paddle;
     const ballItem = equippedItems?.ball;
     const trailItem = equippedItems?.trail;
     const brickItem = equippedItems?.brick;
+    const backgroundItem = (equippedItems as any)?.background;
+    const auraItem = (equippedItems as any)?.aura;
     
+    // Helper for paddle color mapping
     const getPaddleColor = () => {
       if (!paddleItem) return defaultColor;
-      return paddleItem.properties?.color || '#10b981';
+      
+      // Map material to color if 'color' prop is missing
+      const material = paddleItem.properties?.material;
+      if (material) {
+        const paddleColors: Record<string, string> = {
+          default: defaultColor,
+          neon: "#10b981",
+          chrome: "#94a3b8",
+          gold: "#eab308",
+          plasma: "#a855f7",
+          rainbow: `hsl(${frame % 360}, 70%, 50%)`,
+        };
+        return paddleColors[material] || paddleItem.properties?.color || defaultColor;
+      }
+      
+      return paddleItem.properties?.color || defaultColor;
     };
     
+    // Helper for ball color mapping
     const getBallColor = () => {
       if (!ballItem) return defaultColor;
-      return ballItem.properties?.color || '#ef4444';
+      
+      const colorProp = ballItem.properties?.color;
+      if (colorProp) {
+         const ballColors: Record<string, string> = {
+            default: defaultColor,
+            red: "#ef4444",
+            blue: "#3b82f6",
+            purple: "#a855f7",
+            neon: "#10b981",
+            yellow: "#eab308",
+            rainbow: `hsl(${frame % 360}, 70%, 50%)`,
+          };
+          return ballColors[colorProp] || colorProp;
+      }
+      return defaultColor;
     };
     
     const getBrickColor = () => {
@@ -215,6 +220,69 @@ export const GameCanvas = ({
     // Clear canvas
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
+    // Draw Background
+    if (backgroundItem) {
+        const bgTheme = backgroundItem.properties?.theme;
+        if (bgTheme === "space") {
+            for (let i = 0; i < 20; i++) {
+              const x = ((frame + i * 50) % canvas.width);
+              const y = (i * 30) % canvas.height;
+              ctx.fillStyle = isDark ? "#ffffff" : "#000000";
+              ctx.fillRect(x, y, 2, 2);
+            }
+        } else if (bgTheme === "neon") {
+            ctx.strokeStyle = "#10b981";
+            ctx.lineWidth = 1;
+            ctx.globalAlpha = 0.2;
+            for (let i = 0; i < 10; i++) {
+              const y = (i * 60 + frame % 60);
+              ctx.beginPath();
+              ctx.moveTo(0, y);
+              ctx.lineTo(canvas.width, y);
+              ctx.stroke();
+            }
+            ctx.globalAlpha = 1;
+        } else if (bgTheme === "matrix") {
+            ctx.fillStyle = "#10b981";
+            ctx.font = "14px monospace";
+            ctx.globalAlpha = 0.1;
+            for (let i = 0; i < 10; i++) {
+              const x = i * 60;
+              const y = (frame * 2 % canvas.height);
+              ctx.fillText("01", x, y);
+            }
+            ctx.globalAlpha = 1;
+        }
+    }
+
+    // Draw Aura
+    if (auraItem) {
+        const auraType = auraItem.properties?.type;
+        const auraColors: Record<string, string> = {
+            flower: "#ec4899",
+            butterfly: "#8b5cf6",
+            bat: "#6366f1",
+            ice: "#3b82f6",
+            fire: "#ef4444",
+            lightning: "#eab308",
+            shadow: "#64748b",
+        };
+        const auraColor = auraColors[auraType] || "#a855f7";
+        
+        // Draw aura around paddle center
+        const centerX = paddle.x + paddle.width / 2;
+        const centerY = paddle.y + paddle.height / 2;
+        const radius = 50 + Math.sin(frame * 0.05) * 5;
+        
+        ctx.beginPath();
+        ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
+        ctx.strokeStyle = auraColor;
+        ctx.lineWidth = 2;
+        ctx.globalAlpha = 0.4;
+        ctx.stroke();
+        ctx.globalAlpha = 1;
+    }
+
     // Draw shield effect if active
     if (shieldActive) {
       ctx.strokeStyle = 'rgba(59, 130, 246, 0.5)';
@@ -224,13 +292,21 @@ export const GameCanvas = ({
 
     // Draw ball trail if equipped
     if ((ballItem || trailItem) && ballTrail.length > 0) {
-      const trailColor = trailItem?.properties?.color || ballItem?.properties?.color || 'rgb(239, 68, 68)';
-      const rgb = trailColor.match(/\d+/g) || [239, 68, 68];
+      const trailColor = trailItem?.properties?.color || ballColor;
+      // Simple hex to rgb conversion for alpha
+      let r=239, g=68, b=68;
+      if (trailColor.startsWith('#')) {
+          const bigint = parseInt(trailColor.slice(1), 16);
+          r = (bigint >> 16) & 255;
+          g = (bigint >> 8) & 255;
+          b = bigint & 255;
+      }
+      
       ballTrail.forEach((pos, index) => {
         const alpha = (index / ballTrail.length) * 0.5;
         ctx.beginPath();
         ctx.arc(pos.x, pos.y, ball.radius, 0, Math.PI * 2);
-        ctx.fillStyle = `rgba(${rgb[0]}, ${rgb[1]}, ${rgb[2]}, ${alpha})`;
+        ctx.fillStyle = `rgba(${r}, ${g}, ${b}, ${alpha})`;
         ctx.fill();
         ctx.closePath();
       });
@@ -242,6 +318,19 @@ export const GameCanvas = ({
     ctx.fillStyle = ballColor;
     ctx.fill();
     ctx.closePath();
+    
+    // Ball effect
+    if (ballItem?.properties?.effect === "fire") {
+        ctx.shadowBlur = 10;
+        ctx.shadowColor = "#ef4444";
+        ctx.fill();
+        ctx.shadowBlur = 0;
+    } else if (ballItem?.properties?.effect === "glow") {
+        ctx.shadowBlur = 10;
+        ctx.shadowColor = ballColor;
+        ctx.fill();
+        ctx.shadowBlur = 0;
+    }
 
     // Draw extra balls
     balls.forEach((extraBall) => {
@@ -253,9 +342,8 @@ export const GameCanvas = ({
     });
 
     // Draw paddle with glow effect if equipped
-    if (paddleItem) {
-      const glowIntensity = paddleItem.properties?.glow || 15;
-      ctx.shadowBlur = glowIntensity;
+    if (paddleItem?.properties?.effect === "glow") {
+      ctx.shadowBlur = 15;
       ctx.shadowColor = paddleColor;
     }
     ctx.fillStyle = paddleColor;
@@ -268,17 +356,23 @@ export const GameCanvas = ({
       ctx.fillRect(opponentPaddleX, paddle.y + 30, paddle.width, paddle.height);
     }
 
-    // Draw bricks with custom colors if brick skin equipped
+    // Draw bricks
     bricks.forEach((brick) => {
       if (brick.active) {
         ctx.fillStyle = brickColor;
-        if (brickItem?.properties?.glow) {
-          ctx.shadowBlur = 5;
-          ctx.shadowColor = brickColor;
+        
+        if (brickItem?.properties?.effect === "dissolve") {
+             ctx.globalAlpha = 0.8 + Math.sin(frame * 0.1 + brick.x) * 0.2;
         }
+        
         ctx.fillRect(brick.x, brick.y, brick.width, brick.height);
-        if (brickItem?.properties?.glow) {
-          ctx.shadowBlur = 0;
+        ctx.globalAlpha = 1;
+        
+        // Brick particles effect visualization (static for now)
+        if (brickItem?.properties?.effect === "particles") {
+             ctx.fillStyle = `${defaultColor}44`; // transparent
+             ctx.fillRect(brick.x + 5, brick.y + 5, 5, 5);
+             ctx.fillRect(brick.x + brick.width - 10, brick.y + 10, 3, 3);
         }
       }
     });
@@ -339,6 +433,7 @@ export const GameCanvas = ({
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
+    gameStateRef.current.frame++;
     const { ball, paddle, bricks, coins, powerUps, balls } = gameStateRef.current;
 
     // Move ball
@@ -406,12 +501,6 @@ export const GameCanvas = ({
           gameStateRef.current.score += 10;
           setScore(gameStateRef.current.score);
           onScoreUpdate?.(gameStateRef.current.score);
-
-          // Particle effect for brick breaking
-          const brickItem = equippedItems?.brick;
-          if (equippedItems?.powerup || brickItem?.properties?.particles) {
-            createBrickParticles(ctx, brick.x + brick.width / 2, brick.y + brick.height / 2);
-          }
 
           // Drop coin
           if (brick.hasCoin) {
@@ -535,7 +624,7 @@ export const GameCanvas = ({
     });
 
     drawGame();
-    gameStateRef.current.animationId = requestAnimationFrame(updateGame);
+    animationRef.current = requestAnimationFrame(updateGame);
   };
 
   useEffect(() => {
@@ -615,8 +704,8 @@ export const GameCanvas = ({
       window.removeEventListener("mousemove", handleMouseMove);
       window.removeEventListener("touchstart", handleTouchStart);
       window.removeEventListener("touchmove", handleTouchMove);
-      if (gameStateRef.current.animationId) {
-        cancelAnimationFrame(gameStateRef.current.animationId);
+      if (animationRef.current) {
+        cancelAnimationFrame(animationRef.current);
       }
     };
   }, [settings, isPlaying]);
@@ -624,15 +713,15 @@ export const GameCanvas = ({
   useEffect(() => {
     if (isPlaying) {
       updateGame();
-    } else if (gameStateRef.current.animationId) {
-      cancelAnimationFrame(gameStateRef.current.animationId);
+    } else if (animationRef.current) {
+      cancelAnimationFrame(animationRef.current);
     }
   }, [isPlaying]);
 
   const handleReset = () => {
     setIsPlaying(false);
-    if (gameStateRef.current.animationId) {
-      cancelAnimationFrame(gameStateRef.current.animationId);
+    if (animationRef.current) {
+      cancelAnimationFrame(animationRef.current);
     }
     initGame();
     drawGame();
