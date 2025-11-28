@@ -10,6 +10,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Star, Heart, Play, Search, TrendingUp, Clock, User } from "lucide-react";
 import { toast } from "sonner";
 import { LevelPlayer } from "@/components/LevelPlayer";
+import { useInventory } from "@/hooks/useInventory";
 
 interface Level {
   id: string;
@@ -36,6 +37,7 @@ const LevelBrowser = () => {
   const [userRatings, setUserRatings] = useState<Record<string, number>>({});
   const [userFavorites, setUserFavorites] = useState<Set<string>>(new Set());
   const [sortBy, setSortBy] = useState<'popular' | 'recent' | 'rating'>('popular');
+  const { equippedItems } = useInventory('single_player');
 
   useEffect(() => {
     fetchLevels();
@@ -182,6 +184,7 @@ const LevelBrowser = () => {
       <LevelPlayer 
         level={selectedLevel} 
         onBack={() => setSelectedLevel(null)}
+        equippedItems={equippedItems}
       />
     );
   }

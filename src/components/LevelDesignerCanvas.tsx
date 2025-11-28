@@ -16,11 +16,14 @@ export const LevelDesignerCanvas = ({ bricks, onBricksChange }: LevelDesignerCan
   const [isErasing, setIsErasing] = useState(false);
   const [selectedBrickType, setSelectedBrickType] = useState<'normal' | 'strong' | 'explosive'>('normal');
 
-  const BRICK_WIDTH = 70;
+  // Adjusted dimensions for perfect centering on 600px canvas
+  // 8 columns * 65px + 7 gaps * 8px = 520 + 56 = 576px total width
+  // (600 - 576) / 2 = 12px margin on each side
+  const BRICK_WIDTH = 65;
   const BRICK_HEIGHT = 20;
-  const BRICK_PADDING = 5;
+  const BRICK_PADDING = 8;
   const BRICK_OFFSET_TOP = 60;
-  const BRICK_OFFSET_LEFT = 10;
+  const BRICK_OFFSET_LEFT = 12;
   const COLUMNS = 8;
   const ROWS = 10;
 

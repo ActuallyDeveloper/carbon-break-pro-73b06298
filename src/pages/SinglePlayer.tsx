@@ -11,7 +11,6 @@ import { toast } from "sonner";
 import { Target, Clock } from "lucide-react";
 import { useGameSettings } from "@/hooks/useGameSettings";
 import { useInventory } from "@/hooks/useInventory";
-import { EquippedItems } from "@/types/game";
 
 const SinglePlayer = () => {
   const { user } = useAuth();
@@ -145,6 +144,7 @@ const SinglePlayer = () => {
               onScoreUpdate={handleScoreUpdate} 
               onGameOver={handleGameOver}
               onCoinCollect={handleCoinCollect}
+              equippedItems={equippedItems}
             />
           </TabsContent>
         </Tabs>

@@ -10,6 +10,8 @@ export interface EquippedItems {
   powerup?: { id: string; name: string; properties: any };
   trail?: { id: string; name: string; properties: any };
   brick?: { id: string; name: string; properties: any };
+  background?: { id: string; name: string; properties: any };
+  aura?: { id: string; name: string; properties: any };
 }
 
 export interface PowerUpSettings {

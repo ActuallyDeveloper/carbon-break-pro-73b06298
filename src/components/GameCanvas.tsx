@@ -100,19 +100,18 @@ export const GameCanvas = ({
     }, type === 'shield' ? 30000 : 10000);
   };
 
-  const createBrickParticles = (ctx: CanvasRenderingContext2D, x: number, y: number) => {
-    // Simple particle effect handled in draw loop if needed
-  };
-
   const initGame = () => {
     const bricks: Brick[] = [];
     const brickRowCount = 5;
     const brickColumnCount = 8;
-    const brickWidth = 70;
+    // Adjusted dimensions for perfect centering on 600px canvas
+    // 8 columns * 65px + 7 gaps * 8px = 520 + 56 = 576px total width
+    // (600 - 576) / 2 = 12px margin on each side
+    const brickWidth = 65;
     const brickHeight = 20;
-    const brickPadding = 5;
+    const brickPadding = 8;
     const brickOffsetTop = 60;
-    const brickOffsetLeft = 10;
+    const brickOffsetLeft = 12;
 
     for (let c = 0; c < brickColumnCount; c++) {
       for (let r = 0; r < brickRowCount; r++) {
@@ -159,19 +158,17 @@ export const GameCanvas = ({
     const isDark = theme === 'dark';
     const defaultColor = isDark ? '#ffffff' : '#000000';
     
-    // Get equipped item properties with fallback to different property names used in ShopItemPreview
     const paddleItem = equippedItems?.paddle;
     const ballItem = equippedItems?.ball;
     const trailItem = equippedItems?.trail;
     const brickItem = equippedItems?.brick;
-    const backgroundItem = (equippedItems as any)?.background;
-    const auraItem = (equippedItems as any)?.aura;
+    const backgroundItem = equippedItems?.background;
+    const auraItem = equippedItems?.aura;
     
     // Helper for paddle color mapping
     const getPaddleColor = () => {
       if (!paddleItem) return defaultColor;
       
-      // Map material to color if 'color' prop is missing
       const material = paddleItem.properties?.material;
       if (material) {
         const paddleColors: Record<string, string> = {

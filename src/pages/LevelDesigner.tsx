@@ -18,6 +18,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { useInventory } from "@/hooks/useInventory";
 
 interface UserLevel {
   id: string;
@@ -40,6 +41,7 @@ const LevelDesigner = () => {
   const [userLevels, setUserLevels] = useState<UserLevel[]>([]);
   const [isTesting, setIsTesting] = useState(false);
   const [isLoadDialogOpen, setIsLoadDialogOpen] = useState(false);
+  const { equippedItems } = useInventory('single_player');
 
   useEffect(() => {
     if (user) {
@@ -183,7 +185,8 @@ const LevelDesigner = () => {
         </div>
         <LevelPlayer 
           level={testLevelData} 
-          onBack={() => setIsTesting(false)} 
+          onBack={() => setIsTesting(false)}
+          equippedItems={equippedItems}
         />
       </div>
     );

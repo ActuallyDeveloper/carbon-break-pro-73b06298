@@ -5,15 +5,16 @@ import { Play, Pause, RotateCcw, Trophy, Coins, Clock } from "lucide-react";
 import { useTheme } from "@/lib/theme";
 import { useGameSettings } from "@/hooks/useGameSettings";
 import { getDifficultySettings, getTimeLimit } from "@/lib/gameUtils";
-import { Coin, Brick } from "@/types/game";
+import { Coin, Brick, EquippedItems } from "@/types/game";
 
 type TimeLimitGameCanvasProps = {
   onScoreUpdate?: (score: number) => void;
   onGameOver?: (score: number, coins: number, timeBonus: number) => void;
   onCoinCollect?: (coins: number) => void;
+  equippedItems?: EquippedItems;
 };
 
-export const TimeLimitGameCanvas = ({ onScoreUpdate, onGameOver, onCoinCollect }: TimeLimitGameCanvasProps) => {
+export const TimeLimitGameCanvas = ({ onScoreUpdate, onGameOver, onCoinCollect, equippedItems }: TimeLimitGameCanvasProps) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const { theme } = useTheme();
   const { settings } = useGameSettings();
@@ -21,8 +22,8 @@ export const TimeLimitGameCanvas = ({ onScoreUpdate, onGameOver, onCoinCollect }
   const [score, setScore] = useState(0);
   const [coinsCollected, setCoinsCollected] = useState(0);
   const [timeRemaining, setTimeRemaining] = useState(0);
-  const [mouseX, setMouseX] = useState(0);
   const [touchStartX, setTouchStartX] = useState(0);
+  const [ballTrail, setBallTrail] = useState<Array<{x: number, y: number}>>([]);
   
   const diffSettings = getDifficultySettings(settings.difficulty);
   const timeLimit = getTimeLimit(settings.difficulty);
@@ -36,6 +37,7 @@ export const TimeLimitGameCanvas = ({ onScoreUpdate, onGameOver, onCoinCollect }
     coinsCollected: 0,
     timeRemaining: timeLimit,
     startTime: 0,
+    frame: 0,
     animationId: null as number | null,
   });
 
@@ -43,11 +45,14 @@ export const TimeLimitGameCanvas = ({ onScoreUpdate, onGameOver, onCoinCollect }
     const bricks: Brick[] = [];
     const brickRowCount = 5;
     const brickColumnCount = 8;
-    const brickWidth = 70;
+    // Adjusted dimensions for perfect centering on 600px canvas
+    // 8 columns * 65px + 7 gaps * 8px = 520 + 56 = 576px total width
+    // (600 - 576) / 2 = 12px margin on each side
+    const brickWidth = 65;
     const brickHeight = 20;
-    const brickPadding = 5;
+    const brickPadding = 8;
     const brickOffsetTop = 60;
-    const brickOffsetLeft = 10;
+    const brickOffsetLeft = 12;
 
     for (let c = 0; c < brickColumnCount; c++) {
       for (let r = 0; r < brickRowCount; r++) {
@@ -88,27 +93,197 @@ export const TimeLimitGameCanvas = ({ onScoreUpdate, onGameOver, onCoinCollect }
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
-    const { ball, paddle, bricks, coins } = gameStateRef.current;
-    const color = theme === 'dark' ? '#ffffff' : '#000000';
+    const { ball, paddle, bricks, coins, frame } = gameStateRef.current;
+    const isDark = theme === 'dark';
+    const defaultColor = isDark ? '#ffffff' : '#000000';
+
+    const paddleItem = equippedItems?.paddle;
+    const ballItem = equippedItems?.ball;
+    const trailItem = equippedItems?.trail;
+    const brickItem = equippedItems?.brick;
+    const backgroundItem = equippedItems?.background;
+    const auraItem = equippedItems?.aura;
+
+    // Helper for paddle color mapping
+    const getPaddleColor = () => {
+      if (!paddleItem) return defaultColor;
+      
+      const material = paddleItem.properties?.material;
+      if (material) {
+        const paddleColors: Record<string, string> = {
+          default: defaultColor,
+          neon: "#10b981",
+          chrome: "#94a3b8",
+          gold: "#eab308",
+          plasma: "#a855f7",
+          rainbow: `hsl(${frame % 360}, 70%, 50%)`,
+        };
+        return paddleColors[material] || paddleItem.properties?.color || defaultColor;
+      }
+      
+      return paddleItem.properties?.color || defaultColor;
+    };
+    
+    // Helper for ball color mapping
+    const getBallColor = () => {
+      if (!ballItem) return defaultColor;
+      
+      const colorProp = ballItem.properties?.color;
+      if (colorProp) {
+         const ballColors: Record<string, string> = {
+            default: defaultColor,
+            red: "#ef4444",
+            blue: "#3b82f6",
+            purple: "#a855f7",
+            neon: "#10b981",
+            yellow: "#eab308",
+            rainbow: `hsl(${frame % 360}, 70%, 50%)`,
+          };
+          return ballColors[colorProp] || colorProp;
+      }
+      return defaultColor;
+    };
+    
+    const getBrickColor = () => {
+      if (!brickItem) return defaultColor;
+      return brickItem.properties?.color || defaultColor;
+    };
+
+    const paddleColor = getPaddleColor();
+    const ballColor = getBallColor();
+    const brickColor = getBrickColor();
 
     ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    // Draw Background
+    if (backgroundItem) {
+        const bgTheme = backgroundItem.properties?.theme;
+        if (bgTheme === "space") {
+            for (let i = 0; i < 20; i++) {
+              const x = ((frame + i * 50) % canvas.width);
+              const y = (i * 30) % canvas.height;
+              ctx.fillStyle = isDark ? "#ffffff" : "#000000";
+              ctx.fillRect(x, y, 2, 2);
+            }
+        } else if (bgTheme === "neon") {
+            ctx.strokeStyle = "#10b981";
+            ctx.lineWidth = 1;
+            ctx.globalAlpha = 0.2;
+            for (let i = 0; i < 10; i++) {
+              const y = (i * 60 + frame % 60);
+              ctx.beginPath();
+              ctx.moveTo(0, y);
+              ctx.lineTo(canvas.width, y);
+              ctx.stroke();
+            }
+            ctx.globalAlpha = 1;
+        } else if (bgTheme === "matrix") {
+            ctx.fillStyle = "#10b981";
+            ctx.font = "14px monospace";
+            ctx.globalAlpha = 0.1;
+            for (let i = 0; i < 10; i++) {
+              const x = i * 60;
+              const y = (frame * 2 % canvas.height);
+              ctx.fillText("01", x, y);
+            }
+            ctx.globalAlpha = 1;
+        }
+    }
+
+    // Draw Aura
+    if (auraItem) {
+        const auraType = auraItem.properties?.type;
+        const auraColors: Record<string, string> = {
+            flower: "#ec4899",
+            butterfly: "#8b5cf6",
+            bat: "#6366f1",
+            ice: "#3b82f6",
+            fire: "#ef4444",
+            lightning: "#eab308",
+            shadow: "#64748b",
+        };
+        const auraColor = auraColors[auraType] || "#a855f7";
+        
+        const centerX = paddle.x + paddle.width / 2;
+        const centerY = paddle.y + paddle.height / 2;
+        const radius = 50 + Math.sin(frame * 0.05) * 5;
+        
+        ctx.beginPath();
+        ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
+        ctx.strokeStyle = auraColor;
+        ctx.lineWidth = 2;
+        ctx.globalAlpha = 0.4;
+        ctx.stroke();
+        ctx.globalAlpha = 1;
+    }
+
+    // Draw ball trail if equipped
+    if ((ballItem || trailItem) && ballTrail.length > 0) {
+      const trailColor = trailItem?.properties?.color || ballColor;
+      let r=239, g=68, b=68;
+      if (trailColor.startsWith('#')) {
+          const bigint = parseInt(trailColor.slice(1), 16);
+          r = (bigint >> 16) & 255;
+          g = (bigint >> 8) & 255;
+          b = bigint & 255;
+      }
+      
+      ballTrail.forEach((pos, index) => {
+        const alpha = (index / ballTrail.length) * 0.5;
+        ctx.beginPath();
+        ctx.arc(pos.x, pos.y, ball.radius, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(${r}, ${g}, ${b}, ${alpha})`;
+        ctx.fill();
+        ctx.closePath();
+      });
+    }
 
     // Draw ball
     ctx.beginPath();
     ctx.arc(ball.x, ball.y, ball.radius, 0, Math.PI * 2);
-    ctx.fillStyle = color;
+    ctx.fillStyle = ballColor;
     ctx.fill();
     ctx.closePath();
 
-    // Draw paddle
-    ctx.fillStyle = color;
-    ctx.fillRect(paddle.x, paddle.y, paddle.width, paddle.height);
+    // Ball effect
+    if (ballItem?.properties?.effect === "fire") {
+        ctx.shadowBlur = 10;
+        ctx.shadowColor = "#ef4444";
+        ctx.fill();
+        ctx.shadowBlur = 0;
+    } else if (ballItem?.properties?.effect === "glow") {
+        ctx.shadowBlur = 10;
+        ctx.shadowColor = ballColor;
+        ctx.fill();
+        ctx.shadowBlur = 0;
+    }
 
-    // Draw bricks (without coin indicators)
+    // Draw paddle
+    if (paddleItem?.properties?.effect === "glow") {
+      ctx.shadowBlur = 15;
+      ctx.shadowColor = paddleColor;
+    }
+    ctx.fillStyle = paddleColor;
+    ctx.fillRect(paddle.x, paddle.y, paddle.width, paddle.height);
+    ctx.shadowBlur = 0;
+
+    // Draw bricks
     bricks.forEach((brick) => {
       if (brick.active) {
-        ctx.fillStyle = color;
+        ctx.fillStyle = brickColor;
+        
+        if (brickItem?.properties?.effect === "dissolve") {
+             ctx.globalAlpha = 0.8 + Math.sin(frame * 0.1 + brick.x) * 0.2;
+        }
+        
         ctx.fillRect(brick.x, brick.y, brick.width, brick.height);
+        ctx.globalAlpha = 1;
+        
+        if (brickItem?.properties?.effect === "particles") {
+             ctx.fillStyle = `${defaultColor}44`;
+             ctx.fillRect(brick.x + 5, brick.y + 5, 5, 5);
+             ctx.fillRect(brick.x + brick.width - 10, brick.y + 10, 3, 3);
+        }
       }
     });
 
@@ -119,7 +294,7 @@ export const TimeLimitGameCanvas = ({ onScoreUpdate, onGameOver, onCoinCollect }
         ctx.beginPath();
         ctx.arc(coin.x, coin.y, 6, 0, Math.PI * 2);
         ctx.fill();
-        ctx.strokeStyle = color;
+        ctx.strokeStyle = defaultColor;
         ctx.lineWidth = 1;
         ctx.stroke();
       }
@@ -133,6 +308,7 @@ export const TimeLimitGameCanvas = ({ onScoreUpdate, onGameOver, onCoinCollect }
     if (!canvas) return;
 
     const { ball, paddle, bricks, coins } = gameStateRef.current;
+    gameStateRef.current.frame++;
 
     // Update time
     const elapsed = Math.floor((Date.now() - gameStateRef.current.startTime) / 1000);
@@ -150,6 +326,14 @@ export const TimeLimitGameCanvas = ({ onScoreUpdate, onGameOver, onCoinCollect }
     // Move ball
     ball.x += ball.dx;
     ball.y += ball.dy;
+
+    // Update ball trail
+    const trailItem = equippedItems?.trail;
+    const ballItem = equippedItems?.ball;
+    if (ballItem || trailItem) {
+      const trailLength = trailItem?.properties?.length || 10;
+      setBallTrail(prev => [...prev.slice(-trailLength), { x: ball.x, y: ball.y }]);
+    }
 
     // Wall collision
     if (ball.x + ball.dx > canvas.width - ball.radius || ball.x + ball.dx < ball.radius) {
