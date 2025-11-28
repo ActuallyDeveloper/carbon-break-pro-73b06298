@@ -126,23 +126,18 @@ export const useInventory = (mode: 'single_player' | 'multiplayer') => {
     }
   };
 
-  // Convert equipped items to the format expected by GameCanvas with full item data
-  const equippedItemsWithData = inventory
-    .filter(item => item.equipped)
-    .reduce((acc, item) => {
-      if (item.item) {
-        acc[item.item.type] = {
-          id: item.item_id,
-          name: item.item.name,
-          properties: item.item.properties,
-        };
-      }
-      return acc;
-    }, {} as Record<string, { id: string; name: string; properties: any }>);
+  // Convert equipped items to the format expected by GameCanvas
+  const equippedItemsForGame = {
+    paddle: equippedItems['paddle'],
+    ball: equippedItems['ball'],
+    powerup: equippedItems['powerup'],
+    trail: equippedItems['trail'],
+    brick: equippedItems['brick'],
+  };
 
   return {
     inventory,
-    equippedItems: equippedItemsWithData,
+    equippedItems: equippedItemsForGame,
     equipItem,
     unequipItem,
     refetch: fetchInventory,

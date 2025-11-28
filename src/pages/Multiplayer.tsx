@@ -1,146 +1,138 @@
 import { Layout } from "@/components/Layout";
 import { Button } from "@/components/ui/button";
-import { Users, Plus, Search } from "lucide-react";
-import { useState } from "react";
+import { Users, Plus, Search, Play } from "lucide-react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { useGameRooms } from "@/hooks/useGameRooms";
-import { CreateRoomModal } from "@/components/CreateRoomModal";
-import { JoinRoomModal } from "@/components/JoinRoomModal";
-import { RoomLobby } from "@/components/RoomLobby";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/lib/auth";
+import { toast } from "sonner";
 
 const Multiplayer = () => {
+  const { user } = useAuth();
   const navigate = useNavigate();
-  const [showCreateModal, setShowCreateModal] = useState(false);
-  const [showJoinModal, setShowJoinModal] = useState(false);
-  
-  const {
-    currentRoom,
-    roomPlayers,
-    loading,
-    createRoom,
-    joinRoom,
-    leaveRoom,
-    startGame,
-    quickMatch,
-  } = useGameRooms();
+  const [matches, setMatches] = useState<any[]>([]);
 
-  const handleCreateRoom = async (gameMode: string, maxPlayers: number) => {
-    const roomId = await createRoom(gameMode, maxPlayers);
-    if (roomId) {
-      setShowCreateModal(false);
-    }
-    return roomId;
-  };
+  useEffect(() => {
+    if (!user) return;
 
-  const handleJoinRoom = async (roomCode: string) => {
-    const roomId = await joinRoom(roomCode);
-    if (roomId) {
-      setShowJoinModal(false);
-    }
-    return roomId;
-  };
+    const fetchMatches = async () => {
+      const { data } = await supabase
+        .from("multiplayer_matches")
+        .select("*, host:profiles!multiplayer_matches_host_id_fkey(username), opponent:profiles!multiplayer_matches_opponent_id_fkey(username)")
+        .or(`host_id.eq.${user.id},opponent_id.eq.${user.id}`)
+        .order("created_at", { ascending: false })
+        .limit(10);
 
-  const handleStartGame = async () => {
-    const roomId = await startGame();
-    if (roomId) {
-      navigate(`/multiplayer/game/${roomId}`);
-    }
-  };
+      setMatches(data || []);
+    };
 
-  const handleQuickMatch = async () => {
-    const roomId = await quickMatch();
-    if (roomId) {
-      // Room lobby will show automatically via currentRoom state
-    }
-  };
+    fetchMatches();
 
-  const handleNavigateToGame = () => {
-    if (currentRoom) {
-      navigate(`/multiplayer/game/${currentRoom.id}`);
+    const channel = supabase
+      .channel("multiplayer_matches_changes")
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "multiplayer_matches",
+        },
+        () => fetchMatches()
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [user]);
+
+  const createMatch = async () => {
+    if (!user) return;
+
+    try {
+      const { error } = await supabase
+        .from("multiplayer_matches")
+        .insert({
+          host_id: user.id,
+          status: "waiting",
+        });
+
+      if (error) throw error;
+      toast.success("Match created! Waiting for opponent...");
+    } catch (error: any) {
+      toast.error(error.message || "Failed to create match");
     }
   };
 
   return (
     <Layout>
       <div className="max-w-6xl mx-auto space-y-8">
-        {!currentRoom ? (
-          <>
-            <div className="flex items-center justify-between">
-              <div className="space-y-2">
-                <h1 className="text-4xl font-bold tracking-tight">MULTIPLAYER</h1>
-                <p className="text-muted-foreground uppercase tracking-wider">Real-time Battles</p>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <Button 
-                onClick={() => setShowCreateModal(true)} 
-                className="h-32 flex-col gap-3"
-                disabled={loading}
-              >
-                <Plus className="h-8 w-8" />
-                <div className="text-center">
-                  <div className="font-bold">Create Room</div>
-                  <div className="text-xs opacity-80">Host a new game</div>
-                </div>
-              </Button>
-
-              <Button 
-                onClick={() => setShowJoinModal(true)} 
-                className="h-32 flex-col gap-3"
-                disabled={loading}
-              >
-                <Users className="h-8 w-8" />
-                <div className="text-center">
-                  <div className="font-bold">Join Room</div>
-                  <div className="text-xs opacity-80">Enter room code</div>
-                </div>
-              </Button>
-
-              <Button 
-                onClick={handleQuickMatch} 
-                className="h-32 flex-col gap-3"
-                disabled={loading}
-              >
-                <Search className="h-8 w-8" />
-                <div className="text-center">
-                  <div className="font-bold">Quick Match</div>
-                  <div className="text-xs opacity-80">Find a game fast</div>
-                </div>
-              </Button>
-            </div>
-          </>
-        ) : (
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <h1 className="text-4xl font-bold tracking-tight">GAME LOBBY</h1>
-              <p className="text-muted-foreground uppercase tracking-wider">Waiting for players</p>
-            </div>
-            
-            <RoomLobby
-              room={currentRoom}
-              players={roomPlayers}
-              onStartGame={handleStartGame}
-              onLeaveRoom={leaveRoom}
-              onNavigateToGame={handleNavigateToGame}
-            />
+        <div className="flex items-center justify-between">
+          <div className="space-y-2">
+            <h1 className="text-4xl font-bold tracking-tight">MULTIPLAYER</h1>
+            <p className="text-muted-foreground uppercase tracking-wider">Real-time Battles</p>
           </div>
-        )}
+          <Button onClick={createMatch} className="gap-2">
+            <Plus className="h-4 w-4" />
+            Create Match
+          </Button>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="border border-border p-6 space-y-4">
+            <div className="flex items-center gap-2">
+              <Search className="h-5 w-5" />
+              <h3 className="text-xl font-bold uppercase">Find Match</h3>
+            </div>
+            <Button className="w-full">
+              Quick Match
+            </Button>
+          </div>
+
+          <div className="border border-border p-6 space-y-4">
+            <div className="flex items-center gap-2">
+              <Users className="h-5 w-5" />
+              <h3 className="text-xl font-bold uppercase">Your Matches</h3>
+            </div>
+            <div className="space-y-2">
+              {matches.length === 0 ? (
+                <p className="text-sm text-muted-foreground">No matches yet</p>
+              ) : (
+                matches.map((match) => (
+                  <div
+                    key={match.id}
+                    className="border border-border p-3 space-y-2 hover:bg-accent transition-colors"
+                  >
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm font-medium">
+                        {match.host?.username} vs {match.opponent?.username || "Waiting..."}
+                      </span>
+                      <span className="text-xs text-muted-foreground uppercase">
+                        {match.status}
+                      </span>
+                    </div>
+                    {match.status === "completed" && (
+                      <div className="text-xs text-muted-foreground">
+                        {match.host_score} - {match.opponent_score}
+                      </div>
+                    )}
+                    {match.status === "in_progress" && (
+                      <Button
+                        size="sm"
+                        className="w-full gap-2"
+                        onClick={() => navigate(`/multiplayer/${match.id}`)}
+                      >
+                        <Play className="h-4 w-4" />
+                        Join Match
+                      </Button>
+                    )}
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        </div>
       </div>
-
-      <CreateRoomModal
-        open={showCreateModal}
-        onOpenChange={setShowCreateModal}
-        onCreateRoom={handleCreateRoom}
-        loading={loading}
-      />
-
-      <JoinRoomModal
-        open={showJoinModal}
-        onOpenChange={setShowJoinModal}
-        onJoinRoom={handleJoinRoom}
-        loading={loading}
-      />
     </Layout>
   );
 };

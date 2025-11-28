@@ -5,11 +5,9 @@ export type GameMode = 'normal' | 'time-limit' | 'battle';
 export type PowerUpType = 'multiBall' | 'paddleSize' | 'slowBall' | 'shield';
 
 export interface EquippedItems {
-  paddle?: { id: string; name: string; properties: any };
-  ball?: { id: string; name: string; properties: any };
-  powerup?: { id: string; name: string; properties: any };
-  trail?: { id: string; name: string; properties: any };
-  brick?: { id: string; name: string; properties: any };
+  paddle?: string;
+  ball?: string;
+  powerup?: string;
 }
 
 export interface PowerUpSettings {
