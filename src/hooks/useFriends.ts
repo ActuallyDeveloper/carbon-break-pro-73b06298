@@ -241,6 +241,25 @@ export const useFriends = () => {
     }
   };
 
+  const deleteConnection = async (connectionId: string) => {
+    if (!user) return;
+    setLoading(true);
+
+    try {
+      const { error } = await supabase
+        .from('social_connections')
+        .delete()
+        .eq('id', connectionId);
+
+      if (error) throw error;
+      toast.success('Connection removed');
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to remove connection');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const sendGameInvite = async (friendId: string, roomId: string) => {
     if (!user) return;
 
@@ -296,6 +315,7 @@ export const useFriends = () => {
     sendFriendRequest,
     acceptFriendRequest,
     rejectFriendRequest,
+    deleteConnection,
     sendGameInvite,
     respondToGameInvite,
     getFriendProfile,

@@ -4,7 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { UserPlus, Check, X, Users, Mail, Send, Circle, Gamepad2 } from "lucide-react";
+import { UserPlus, Check, X, Users, Mail, Send, Circle, Gamepad2, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -27,6 +27,7 @@ const Social = () => {
     sendFriendRequest,
     acceptFriendRequest,
     rejectFriendRequest,
+    deleteConnection,
     respondToGameInvite,
     getFriendProfile,
   } = useFriends();
@@ -139,7 +140,14 @@ const Social = () => {
                             </Badge>
                           )}
                         </div>
-                        <Check className="h-4 w-4 text-green-500" />
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          className="text-destructive hover:text-destructive/90 hover:bg-destructive/10"
+                          onClick={() => deleteConnection(connection.id)}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
                       </Card>
                     );
                   })
@@ -202,7 +210,14 @@ const Social = () => {
                   return (
                     <Card key={request.id} className="p-4 flex items-center justify-between">
                       <span className="font-medium">{profile?.username}</span>
-                      <span className="text-xs text-muted-foreground">Pending...</span>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="text-muted-foreground hover:text-destructive"
+                        onClick={() => deleteConnection(request.id)}
+                      >
+                        Cancel
+                      </Button>
                     </Card>
                   );
                 })
