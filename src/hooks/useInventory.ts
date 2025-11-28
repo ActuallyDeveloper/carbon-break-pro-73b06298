@@ -64,8 +64,9 @@ export const useInventory = (mode: 'single_player' | 'multiplayer') => {
       return;
     }
 
+    // Fix: Include items that are for the specific mode OR for 'both'
     const modeInventory = (data || []).filter(
-      (item: any) => item.item?.mode === mode
+      (item: any) => item.item?.mode === mode || item.item?.mode === 'both'
     );
     
     setInventory(modeInventory);
