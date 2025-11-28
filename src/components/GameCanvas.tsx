@@ -14,9 +14,21 @@ type GameCanvasProps = {
   onCoinCollect?: (coins: number) => void;
   equippedItems?: EquippedItems;
   enablePowerUps?: boolean;
+  onPaddleMove?: (paddleX: number) => void;
+  onBallMove?: (ballX: number, ballY: number) => void;
+  opponentPaddleX?: number;
 };
 
-export const GameCanvas = ({ onScoreUpdate, onGameOver, onCoinCollect, equippedItems, enablePowerUps = true }: GameCanvasProps) => {
+export const GameCanvas = ({ 
+  onScoreUpdate, 
+  onGameOver, 
+  onCoinCollect, 
+  equippedItems, 
+  enablePowerUps = true,
+  onPaddleMove,
+  onBallMove,
+  opponentPaddleX,
+}: GameCanvasProps) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const { theme } = useTheme();
   const { settings } = useGameSettings();
@@ -250,6 +262,12 @@ export const GameCanvas = ({ onScoreUpdate, onGameOver, onCoinCollect, equippedI
     ctx.fillRect(paddle.x, paddle.y, paddle.width, paddle.height);
     ctx.shadowBlur = 0;
 
+    // Draw opponent paddle if in multiplayer
+    if (opponentPaddleX !== undefined && opponentPaddleX !== null) {
+      ctx.fillStyle = 'rgba(239, 68, 68, 0.5)'; // Red semi-transparent
+      ctx.fillRect(opponentPaddleX, paddle.y + 30, paddle.width, paddle.height);
+    }
+
     // Draw bricks with custom colors if brick skin equipped
     bricks.forEach((brick) => {
       if (brick.active) {
@@ -326,6 +344,9 @@ export const GameCanvas = ({ onScoreUpdate, onGameOver, onCoinCollect, equippedI
     // Move ball
     ball.x += ball.dx;
     ball.y += ball.dy;
+
+    // Broadcast ball position for multiplayer
+    onBallMove?.(ball.x, ball.y);
 
     // Update ball trail
     const trailItem = equippedItems?.trail;
@@ -530,9 +551,11 @@ export const GameCanvas = ({ onScoreUpdate, onGameOver, onCoinCollect, equippedI
       if (settings.desktopControl === 'arrows' || settings.desktopControl === 'keys') {
         if ((e.key === "ArrowLeft" || e.key === "a" || e.key === "A") && paddle.x > 0) {
           paddle.x -= paddle.speed;
+          onPaddleMove?.(paddle.x);
           drawGame();
         } else if ((e.key === "ArrowRight" || e.key === "d" || e.key === "D") && paddle.x < canvas.width - paddle.width) {
           paddle.x += paddle.speed;
+          onPaddleMove?.(paddle.x);
           drawGame();
         }
       }
@@ -548,6 +571,7 @@ export const GameCanvas = ({ onScoreUpdate, onGameOver, onCoinCollect, equippedI
       const { paddle } = gameStateRef.current;
       
       paddle.x = Math.max(0, Math.min(x - paddle.width / 2, canvas.width - paddle.width));
+      onPaddleMove?.(paddle.x);
       if (!isPlaying) drawGame();
     };
 
@@ -577,6 +601,7 @@ export const GameCanvas = ({ onScoreUpdate, onGameOver, onCoinCollect, equippedI
         paddle.x = Math.max(0, Math.min(x - paddle.width / 2, canvas.width - paddle.width));
       }
       
+      onPaddleMove?.(paddle.x);
       if (!isPlaying) drawGame();
     };
 

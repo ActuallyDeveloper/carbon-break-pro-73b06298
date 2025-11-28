@@ -3,12 +3,14 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card } from "@/components/ui/card";
-import { UserPlus, Check, X, Users, Mail, Send } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { UserPlus, Check, X, Users, Mail, Send, Circle, Gamepad2 } from "lucide-react";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { useFriends } from "@/hooks/useFriends";
+import { useUserPresence } from "@/hooks/useUserPresence";
 import { toast } from "sonner";
 
 const Social = () => {
@@ -28,6 +30,8 @@ const Social = () => {
     respondToGameInvite,
     getFriendProfile,
   } = useFriends();
+
+  const { presenceStates, isUserOnline, isUserInGame } = useUserPresence();
 
   const searchUsers = async () => {
     if (!searchQuery.trim()) return;
@@ -115,9 +119,26 @@ const Social = () => {
                 ) : (
                   friends.map((connection) => {
                     const profile = getFriendProfile(connection);
+                    const friendId = connection.friend_id;
+                    const online = isUserOnline(friendId);
+                    const inGame = isUserInGame(friendId);
+                    
                     return (
                       <Card key={connection.id} className="p-4 flex items-center justify-between">
-                        <span className="font-medium">{profile?.username}</span>
+                        <div className="flex items-center gap-3">
+                          <div className="relative">
+                            <Circle 
+                              className={`h-3 w-3 ${online ? 'fill-green-500 text-green-500' : 'fill-muted text-muted'}`}
+                            />
+                          </div>
+                          <span className="font-medium">{profile?.username}</span>
+                          {inGame && (
+                            <Badge variant="secondary" className="flex items-center gap-1">
+                              <Gamepad2 className="h-3 w-3" />
+                              In Game
+                            </Badge>
+                          )}
+                        </div>
                         <Check className="h-4 w-4 text-green-500" />
                       </Card>
                     );
