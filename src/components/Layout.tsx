@@ -2,7 +2,7 @@ import { Link, useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "@/lib/auth";
 import { useTheme } from "@/lib/theme";
 import { Button } from "@/components/ui/button";
-import { Moon, Sun, LogOut, Home, User, Settings, Trophy, Users, MessageSquare, Palette, Calendar, Gamepad2, ShoppingCart, Menu, X, Library, TrendingUp } from "lucide-react";
+import { Moon, Sun, LogOut, Home, User, Settings, Trophy, Users, MessageSquare, Palette, Calendar, Gamepad2, ShoppingCart, Menu, X, Library } from "lucide-react";
 import { toast } from "sonner";
 import { useState } from "react";
 import { useUsername } from "@/hooks/useUsername";
@@ -33,7 +33,6 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
     { to: "/seasonal-events", icon: Calendar, label: "Events" },
     { to: "/social", icon: Users, label: "Social" },
     { to: "/chat", icon: MessageSquare, label: "Chat" },
-    { to: "/stats", icon: TrendingUp, label: "Stats" },
   ];
 
   const isActive = (path: string) => location.pathname === path;

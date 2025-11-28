@@ -20,7 +20,6 @@ import LevelBrowser from "./pages/LevelBrowser";
 import SeasonalEvents from "./pages/SeasonalEvents";
 import Chat from "./pages/Chat";
 import Profile from "./pages/Profile";
-import Stats from "./pages/Stats";
 import Settings from "./pages/Settings";
 import About from "./pages/About";
 import NotFound from "./pages/NotFound";
@@ -51,7 +50,6 @@ const App = () => (
               <Route path="/seasonal-events" element={<SeasonalEvents />} />
               <Route path="/chat" element={<Chat />} />
               <Route path="/profile" element={<Profile />} />
-              <Route path="/stats" element={<Stats />} />
               <Route path="/settings" element={<Settings />} />
               <Route path="/about" element={<About />} />
               <Route path="*" element={<NotFound />} />
