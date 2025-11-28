@@ -175,19 +175,30 @@ export const GameCanvas = ({ onScoreUpdate, onGameOver, onCoinCollect, equippedI
     const isDark = theme === 'dark';
     const defaultColor = isDark ? '#ffffff' : '#000000';
     
-    // Get equipped item colors based on equipped items
+    // Get equipped item properties
+    const paddleItem = equippedItems?.paddle;
+    const ballItem = equippedItems?.ball;
+    const trailItem = equippedItems?.trail;
+    const brickItem = equippedItems?.brick;
+    
     const getPaddleColor = () => {
-      if (!equippedItems?.paddle) return defaultColor;
-      return '#10b981'; // Neon green for equipped paddles
+      if (!paddleItem) return defaultColor;
+      return paddleItem.properties?.color || '#10b981';
     };
     
     const getBallColor = () => {
-      if (!equippedItems?.ball) return defaultColor;
-      return '#ef4444'; // Red for equipped balls
+      if (!ballItem) return defaultColor;
+      return ballItem.properties?.color || '#ef4444';
+    };
+    
+    const getBrickColor = () => {
+      if (!brickItem) return defaultColor;
+      return brickItem.properties?.color || defaultColor;
     };
 
     const paddleColor = getPaddleColor();
     const ballColor = getBallColor();
+    const brickColor = getBrickColor();
 
     // Clear canvas
     ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -200,12 +211,14 @@ export const GameCanvas = ({ onScoreUpdate, onGameOver, onCoinCollect, equippedI
     }
 
     // Draw ball trail if equipped
-    if (equippedItems?.ball && ballTrail.length > 0) {
+    if ((ballItem || trailItem) && ballTrail.length > 0) {
+      const trailColor = trailItem?.properties?.color || ballItem?.properties?.color || 'rgb(239, 68, 68)';
+      const rgb = trailColor.match(/\d+/g) || [239, 68, 68];
       ballTrail.forEach((pos, index) => {
         const alpha = (index / ballTrail.length) * 0.5;
         ctx.beginPath();
         ctx.arc(pos.x, pos.y, ball.radius, 0, Math.PI * 2);
-        ctx.fillStyle = `rgba(239, 68, 68, ${alpha})`;
+        ctx.fillStyle = `rgba(${rgb[0]}, ${rgb[1]}, ${rgb[2]}, ${alpha})`;
         ctx.fill();
         ctx.closePath();
       });
@@ -228,19 +241,27 @@ export const GameCanvas = ({ onScoreUpdate, onGameOver, onCoinCollect, equippedI
     });
 
     // Draw paddle with glow effect if equipped
-    if (equippedItems?.paddle) {
-      ctx.shadowBlur = 15;
+    if (paddleItem) {
+      const glowIntensity = paddleItem.properties?.glow || 15;
+      ctx.shadowBlur = glowIntensity;
       ctx.shadowColor = paddleColor;
     }
     ctx.fillStyle = paddleColor;
     ctx.fillRect(paddle.x, paddle.y, paddle.width, paddle.height);
     ctx.shadowBlur = 0;
 
-    // Draw bricks
+    // Draw bricks with custom colors if brick skin equipped
     bricks.forEach((brick) => {
       if (brick.active) {
-        ctx.fillStyle = defaultColor;
+        ctx.fillStyle = brickColor;
+        if (brickItem?.properties?.glow) {
+          ctx.shadowBlur = 5;
+          ctx.shadowColor = brickColor;
+        }
         ctx.fillRect(brick.x, brick.y, brick.width, brick.height);
+        if (brickItem?.properties?.glow) {
+          ctx.shadowBlur = 0;
+        }
       }
     });
 
@@ -307,8 +328,11 @@ export const GameCanvas = ({ onScoreUpdate, onGameOver, onCoinCollect, equippedI
     ball.y += ball.dy;
 
     // Update ball trail
-    if (equippedItems?.ball) {
-      setBallTrail(prev => [...prev.slice(-10), { x: ball.x, y: ball.y }]);
+    const trailItem = equippedItems?.trail;
+    const ballItem = equippedItems?.ball;
+    if (ballItem || trailItem) {
+      const trailLength = trailItem?.properties?.length || 10;
+      setBallTrail(prev => [...prev.slice(-trailLength), { x: ball.x, y: ball.y }]);
     }
 
     // Wall collision
@@ -363,7 +387,8 @@ export const GameCanvas = ({ onScoreUpdate, onGameOver, onCoinCollect, equippedI
           onScoreUpdate?.(gameStateRef.current.score);
 
           // Particle effect for brick breaking
-          if (equippedItems?.powerup) {
+          const brickItem = equippedItems?.brick;
+          if (equippedItems?.powerup || brickItem?.properties?.particles) {
             createBrickParticles(ctx, brick.x + brick.width / 2, brick.y + brick.height / 2);
           }
 
