@@ -83,7 +83,7 @@ const LevelDesigner = () => {
         level_data: {
           bricks,
           powerups: [],
-        },
+        } as any,
         updated_at: new Date().toISOString(),
       };
 

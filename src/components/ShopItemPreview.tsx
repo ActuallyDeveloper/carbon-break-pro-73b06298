@@ -83,20 +83,60 @@ export const ShopItemPreview = ({ type, properties, rarity }: ShopItemPreviewPro
         case "brick":
           const brickX = width / 2 - 25;
           const brickY = height / 2 - 8;
-          ctx.fillStyle = baseColor;
-          ctx.fillRect(brickX, brickY, 50, 16);
+          
+          // Handle brick colors
+          const brickColors: Record<string, string> = {
+            default: baseColor,
+            red: "#ef4444",
+            blue: "#3b82f6",
+            green: "#10b981",
+            purple: "#a855f7",
+            yellow: "#eab308",
+            orange: "#f97316",
+            pink: "#ec4899",
+            rainbow: `hsl(${frame % 360}, 70%, 50%)`,
+          };
+          
+          const effectColors: Record<string, string> = {
+            dissolve: "#8b5cf6",
+            particles: "#3b82f6",
+            glow: "#10b981",
+            explode: "#ef4444",
+          };
+          
+          const brickColor = brickColors[properties?.color] || 
+                             effectColors[properties?.effect] || 
+                             baseColor;
+          
+          ctx.fillStyle = brickColor;
+          
+          if (properties?.effect === "glow") {
+            ctx.shadowBlur = 10;
+            ctx.shadowColor = brickColor;
+          }
           
           if (properties?.effect === "dissolve") {
             ctx.globalAlpha = 0.5 + Math.sin(frame * 0.1) * 0.3;
-            ctx.fillRect(brickX, brickY, 50, 16);
-            ctx.globalAlpha = 1;
-          } else if (properties?.effect === "particles") {
+          }
+          
+          ctx.fillRect(brickX, brickY, 50, 16);
+          ctx.shadowBlur = 0;
+          ctx.globalAlpha = 1;
+          
+          if (properties?.effect === "particles") {
             for (let i = 0; i < 3; i++) {
               const offsetX = Math.sin(frame * 0.1 + i) * 10;
               const offsetY = Math.cos(frame * 0.1 + i) * 10;
-              ctx.fillStyle = `${baseColor}88`;
+              ctx.fillStyle = brickColor;
+              ctx.globalAlpha = 0.5;
               ctx.fillRect(brickX + 25 + offsetX, brickY + 8 + offsetY, 3, 3);
             }
+            ctx.globalAlpha = 1;
+          }
+          
+          if (properties?.effect === "explode") {
+            const pulseSize = Math.sin(frame * 0.1) * 2;
+            ctx.fillRect(brickX - pulseSize, brickY - pulseSize, 50 + pulseSize * 2, 16 + pulseSize * 2);
           }
           break;
 
@@ -170,13 +210,40 @@ export const ShopItemPreview = ({ type, properties, rarity }: ShopItemPreviewPro
             magnet: "🧲",
             laser: "⚡",
             freeze: "❄️",
+            shield: "🛡️",
+            multiBall: "⚫",
+            paddleSize: "📏",
+            slowBall: "🐌",
           };
           const icon = powerupIcons[properties?.type] || "⭐";
           
-          ctx.font = "30px Arial";
+          const powerupColors: Record<string, string> = {
+            bomb: "#ef4444",
+            magnet: "#8b5cf6",
+            laser: "#eab308",
+            freeze: "#3b82f6",
+            shield: "#8b5cf6",
+            multiBall: "#ef4444",
+            paddleSize: "#3b82f6",
+            slowBall: "#10b981",
+          };
+          const powerupColor = powerupColors[properties?.type] || baseColor;
+          
+          // Draw powerup circle
+          ctx.beginPath();
+          ctx.arc(width / 2, height / 2, 20, 0, Math.PI * 2);
+          ctx.fillStyle = powerupColor;
+          ctx.globalAlpha = 0.3;
+          ctx.fill();
+          ctx.globalAlpha = 1;
+          ctx.strokeStyle = powerupColor;
+          ctx.lineWidth = 2;
+          ctx.stroke();
+          
+          // Draw icon
+          ctx.font = "24px Arial";
           ctx.textAlign = "center";
           ctx.textBaseline = "middle";
-          ctx.fillStyle = baseColor;
           const scale = 1 + Math.sin(frame * 0.1) * 0.1;
           ctx.save();
           ctx.translate(width / 2, height / 2);
@@ -185,11 +252,34 @@ export const ShopItemPreview = ({ type, properties, rarity }: ShopItemPreviewPro
           ctx.restore();
           break;
 
+        case "trail":
+          // Draw ball with trail effect
+          const trailLength = properties?.length || 10;
+          const trailColor = properties?.color || baseColor;
+          
+          for (let i = 0; i < 5; i++) {
+            const alpha = (i / 5) * 0.5;
+            const offset = i * 8;
+            ctx.beginPath();
+            ctx.arc(width / 2 - offset, height / 2, 10, 0, Math.PI * 2);
+            ctx.fillStyle = trailColor;
+            ctx.globalAlpha = alpha;
+            ctx.fill();
+          }
+          ctx.globalAlpha = 1;
+          
+          // Main ball
+          ctx.beginPath();
+          ctx.arc(width / 2, height / 2, 10, 0, Math.PI * 2);
+          ctx.fillStyle = trailColor;
+          ctx.fill();
+          break;
+
         default:
           ctx.fillStyle = baseColor;
           ctx.font = "12px sans-serif";
           ctx.textAlign = "center";
-          ctx.fillText(type, width / 2, height / 2);
+          ctx.fillText(type.toUpperCase(), width / 2, height / 2);
       }
 
       animationRef.current = requestAnimationFrame(animate);
