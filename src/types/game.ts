@@ -12,6 +12,10 @@ export interface EquippedItems {
   brick?: { id: string; name: string; properties: any };
   background?: { id: string; name: string; properties: any };
   aura?: { id: string; name: string; properties: any };
+  explosion?: { id: string; name: string; properties: any };
+  color?: { id: string; name: string; properties: any };
+  skin?: { id: string; name: string; properties: any };
+  animation?: { id: string; name: string; properties: any };
 }
 
 export interface PowerUpSettings {

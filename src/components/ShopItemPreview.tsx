@@ -275,6 +275,135 @@ export const ShopItemPreview = ({ type, properties, rarity }: ShopItemPreviewPro
           ctx.fill();
           break;
 
+        case "explosion":
+          const explosionTypes: Record<string, string> = {
+            fire: "#ef4444",
+            ice: "#3b82f6",
+            lightning: "#eab308",
+            plasma: "#a855f7",
+            blackhole: "#000000",
+            rainbow: `hsl(${frame % 360}, 70%, 50%)`,
+          };
+          const explosionColor = explosionTypes[properties?.type] || "#ef4444";
+          
+          // Draw explosion particles in a circle
+          for (let i = 0; i < 8; i++) {
+            const angle = (Math.PI * 2 * i) / 8 + frame * 0.05;
+            const radius = 15 + Math.sin(frame * 0.1) * 5;
+            const x = width / 2 + Math.cos(angle) * radius;
+            const y = height / 2 + Math.sin(angle) * radius;
+            
+            ctx.beginPath();
+            ctx.arc(x, y, 4, 0, Math.PI * 2);
+            ctx.fillStyle = explosionColor;
+            ctx.globalAlpha = 0.7 + Math.sin(frame * 0.1 + i) * 0.3;
+            ctx.fill();
+          }
+          ctx.globalAlpha = 1;
+          break;
+
+        case "color":
+          // Draw color theme preview
+          const primaryColor = properties?.primary || baseColor;
+          const secondaryColor = properties?.secondary || primaryColor;
+          
+          // Draw gradient background
+          const gradient = ctx.createLinearGradient(0, 0, width, height);
+          gradient.addColorStop(0, primaryColor);
+          gradient.addColorStop(1, secondaryColor);
+          ctx.fillStyle = gradient;
+          ctx.fillRect(0, 0, width, height);
+          
+          // Draw sparkles if enabled
+          if (properties?.sparkle) {
+            for (let i = 0; i < 5; i++) {
+              const x = (width / 2) + Math.cos(frame * 0.05 + i) * 20;
+              const y = (height / 2) + Math.sin(frame * 0.05 + i) * 20;
+              ctx.fillStyle = "#ffffff";
+              ctx.globalAlpha = 0.5 + Math.sin(frame * 0.1 + i) * 0.5;
+              ctx.fillRect(x, y, 2, 2);
+            }
+            ctx.globalAlpha = 1;
+          }
+          break;
+
+        case "skin":
+          // Draw skin preview based on target
+          const skinTarget = properties?.target || "paddle";
+          const skinColor = properties?.color || baseColor;
+          
+          if (skinTarget === "paddle") {
+            ctx.fillStyle = skinColor;
+            ctx.fillRect(width / 2 - 30, height - 20, 60, 8);
+            if (properties?.pattern === "stripes") {
+              ctx.fillStyle = isDark ? "#ffffff" : "#000000";
+              for (let i = 0; i < 6; i++) {
+                ctx.fillRect(width / 2 - 30 + i * 10, height - 20, 5, 8);
+              }
+            }
+          } else if (skinTarget === "ball") {
+            ctx.beginPath();
+            ctx.arc(width / 2, height / 2, 15, 0, Math.PI * 2);
+            ctx.fillStyle = skinColor;
+            ctx.fill();
+            if (properties?.pattern === "dots") {
+              ctx.fillStyle = isDark ? "#ffffff" : "#000000";
+              for (let i = 0; i < 3; i++) {
+                const angle = (i / 3) * Math.PI * 2;
+                ctx.beginPath();
+                ctx.arc(
+                  width / 2 + Math.cos(angle) * 8,
+                  height / 2 + Math.sin(angle) * 8,
+                  2,
+                  0,
+                  Math.PI * 2
+                );
+                ctx.fill();
+              }
+            }
+          }
+          break;
+
+        case "animation":
+          // Draw animation preview (emote/celebration)
+          const animType = properties?.type || "emote";
+          const animDuration = properties?.duration || 3;
+          
+          ctx.font = "32px Arial";
+          ctx.textAlign = "center";
+          ctx.textBaseline = "middle";
+          
+          const animIcons: Record<string, string> = {
+            emote: "🎉",
+            taunt: "😎",
+            celebration: "🏆",
+            dance: "💃",
+          };
+          const animIcon = animIcons[animType] || "✨";
+          
+          // Animate icon
+          const animScale = 1 + Math.sin(frame * 0.1) * 0.3;
+          ctx.save();
+          ctx.translate(width / 2, height / 2);
+          ctx.scale(animScale, animScale);
+          ctx.fillText(animIcon, 0, 0);
+          ctx.restore();
+          
+          // Draw particles if enabled
+          if (properties?.particles) {
+            for (let i = 0; i < 6; i++) {
+              const angle = (frame * 0.05 + i) % (Math.PI * 2);
+              const radius = 25;
+              const x = width / 2 + Math.cos(angle) * radius;
+              const y = height / 2 + Math.sin(angle) * radius;
+              ctx.fillStyle = `hsl(${(frame + i * 60) % 360}, 70%, 50%)`;
+              ctx.globalAlpha = 0.6;
+              ctx.fillRect(x, y, 3, 3);
+            }
+            ctx.globalAlpha = 1;
+          }
+          break;
+
         default:
           ctx.fillStyle = baseColor;
           ctx.font = "12px sans-serif";
