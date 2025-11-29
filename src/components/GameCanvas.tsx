@@ -207,7 +207,36 @@ export const GameCanvas = ({
     
     const getBrickColor = () => {
       if (!brickItem) return defaultColor;
-      return brickItem.properties?.color || defaultColor;
+      
+      const effect = brickItem.properties?.effect;
+      const color = brickItem.properties?.color;
+      
+      if (color) {
+        const brickColors: Record<string, string> = {
+          default: defaultColor,
+          red: "#ef4444",
+          blue: "#3b82f6",
+          green: "#10b981",
+          purple: "#a855f7",
+          yellow: "#eab308",
+          orange: "#f97316",
+          pink: "#ec4899",
+          rainbow: `hsl(${frame % 360}, 70%, 50%)`,
+        };
+        return brickColors[color] || color;
+      }
+      
+      if (effect) {
+        const effectColors: Record<string, string> = {
+          dissolve: "#8b5cf6",
+          particles: "#3b82f6",
+          glow: "#10b981",
+          explode: "#ef4444",
+        };
+        return effectColors[effect] || defaultColor;
+      }
+      
+      return defaultColor;
     };
 
     const paddleColor = getPaddleColor();
@@ -356,20 +385,51 @@ export const GameCanvas = ({
     // Draw bricks
     bricks.forEach((brick) => {
       if (brick.active) {
-        ctx.fillStyle = brickColor;
+        const brickEffect = brickItem?.properties?.effect;
         
-        if (brickItem?.properties?.effect === "dissolve") {
-             ctx.globalAlpha = 0.8 + Math.sin(frame * 0.1 + brick.x) * 0.2;
+        // Apply brick glow effect
+        if (brickEffect === "glow") {
+          ctx.shadowBlur = 10;
+          ctx.shadowColor = brickColor;
         }
         
+        // Apply dissolve opacity
+        if (brickEffect === "dissolve") {
+          ctx.globalAlpha = 0.8 + Math.sin(frame * 0.1 + brick.x) * 0.2;
+        }
+        
+        ctx.fillStyle = brickColor;
         ctx.fillRect(brick.x, brick.y, brick.width, brick.height);
+        ctx.shadowBlur = 0;
         ctx.globalAlpha = 1;
         
-        // Brick particles effect visualization (static for now)
-        if (brickItem?.properties?.effect === "particles") {
-             ctx.fillStyle = `${defaultColor}44`; // transparent
-             ctx.fillRect(brick.x + 5, brick.y + 5, 5, 5);
-             ctx.fillRect(brick.x + brick.width - 10, brick.y + 10, 3, 3);
+        // Brick particles effect
+        if (brickEffect === "particles") {
+          for (let i = 0; i < 3; i++) {
+            const offsetX = Math.sin(frame * 0.1 + brick.x + i) * 3;
+            const offsetY = Math.cos(frame * 0.1 + brick.y + i) * 3;
+            ctx.fillStyle = brickColor;
+            ctx.globalAlpha = 0.5;
+            ctx.fillRect(
+              brick.x + brick.width / 2 + offsetX - 2, 
+              brick.y + brick.height / 2 + offsetY - 2, 
+              4, 
+              4
+            );
+          }
+          ctx.globalAlpha = 1;
+        }
+        
+        // Explode effect (pulsing)
+        if (brickEffect === "explode") {
+          const pulseSize = Math.sin(frame * 0.1) * 2;
+          ctx.fillStyle = brickColor;
+          ctx.fillRect(
+            brick.x - pulseSize, 
+            brick.y - pulseSize, 
+            brick.width + pulseSize * 2, 
+            brick.height + pulseSize * 2
+          );
         }
       }
     });
