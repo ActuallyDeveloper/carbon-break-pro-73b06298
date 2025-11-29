@@ -164,9 +164,22 @@ export const GameCanvas = ({
     const brickItem = equippedItems?.brick;
     const backgroundItem = equippedItems?.background;
     const auraItem = equippedItems?.aura;
+    const explosionItem = equippedItems?.explosion;
+    const colorItem = equippedItems?.color;
+    const skinItem = equippedItems?.skin;
     
     // Helper for paddle color mapping
     const getPaddleColor = () => {
+      // Check for skin first
+      if (skinItem && skinItem.properties?.target === 'paddle') {
+        return skinItem.properties?.color || defaultColor;
+      }
+      
+      // Check for color theme
+      if (colorItem?.properties?.primary) {
+        return colorItem.properties.primary;
+      }
+      
       if (!paddleItem) return defaultColor;
       
       const material = paddleItem.properties?.material;
@@ -187,6 +200,16 @@ export const GameCanvas = ({
     
     // Helper for ball color mapping
     const getBallColor = () => {
+      // Check for skin first
+      if (skinItem && skinItem.properties?.target === 'ball') {
+        return skinItem.properties?.color || defaultColor;
+      }
+      
+      // Check for color theme
+      if (colorItem?.properties?.secondary) {
+        return colorItem.properties.secondary;
+      }
+      
       if (!ballItem) return defaultColor;
       
       const colorProp = ballItem.properties?.color;
@@ -206,6 +229,11 @@ export const GameCanvas = ({
     };
     
     const getBrickColor = () => {
+      // Check for color theme
+      if (colorItem?.properties?.primary) {
+        return colorItem.properties.primary;
+      }
+      
       if (!brickItem) return defaultColor;
       
       const effect = brickItem.properties?.effect;
@@ -491,7 +519,8 @@ export const GameCanvas = ({
     if (!ctx) return;
 
     gameStateRef.current.frame++;
-    const { ball, paddle, bricks, coins, powerUps, balls } = gameStateRef.current;
+    const { ball, paddle, bricks, coins, powerUps, balls, frame } = gameStateRef.current;
+    const explosionItem = equippedItems?.explosion;
 
     // Move ball
     ball.x += ball.dx;
@@ -558,6 +587,38 @@ export const GameCanvas = ({
           gameStateRef.current.score += 10;
           setScore(gameStateRef.current.score);
           onScoreUpdate?.(gameStateRef.current.score);
+
+          // Draw explosion effect if equipped
+          if (explosionItem) {
+            const frame = gameStateRef.current.frame;
+            const explosionType = explosionItem.properties?.type;
+            const explosionColors: Record<string, string> = {
+              fire: "#ef4444",
+              ice: "#3b82f6",
+              lightning: "#eab308",
+              plasma: "#a855f7",
+              blackhole: "#000000",
+              rainbow: `hsl(${frame % 360}, 70%, 50%)`,
+            };
+            const explosionColor = explosionColors[explosionType] || "#ef4444";
+            
+            // Create explosion particles
+            for (let i = 0; i < 8; i++) {
+              const angle = (Math.PI * 2 * i) / 8;
+              ctx.beginPath();
+              ctx.arc(
+                brick.x + brick.width / 2 + Math.cos(angle) * 10,
+                brick.y + brick.height / 2 + Math.sin(angle) * 10,
+                3,
+                0,
+                Math.PI * 2
+              );
+              ctx.fillStyle = explosionColor;
+              ctx.globalAlpha = 0.7;
+              ctx.fill();
+              ctx.globalAlpha = 1;
+            }
+          }
 
           // Drop coin
           if (brick.hasCoin) {

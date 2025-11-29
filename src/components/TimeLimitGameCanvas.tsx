@@ -103,9 +103,22 @@ export const TimeLimitGameCanvas = ({ onScoreUpdate, onGameOver, onCoinCollect, 
     const brickItem = equippedItems?.brick;
     const backgroundItem = equippedItems?.background;
     const auraItem = equippedItems?.aura;
+    const explosionItem = equippedItems?.explosion;
+    const colorItem = equippedItems?.color;
+    const skinItem = equippedItems?.skin;
 
     // Helper for paddle color mapping
     const getPaddleColor = () => {
+      // Check for skin first
+      if (skinItem && skinItem.properties?.target === 'paddle') {
+        return skinItem.properties?.color || defaultColor;
+      }
+      
+      // Check for color theme
+      if (colorItem?.properties?.primary) {
+        return colorItem.properties.primary;
+      }
+      
       if (!paddleItem) return defaultColor;
       
       const material = paddleItem.properties?.material;
@@ -126,6 +139,16 @@ export const TimeLimitGameCanvas = ({ onScoreUpdate, onGameOver, onCoinCollect, 
     
     // Helper for ball color mapping
     const getBallColor = () => {
+      // Check for skin first
+      if (skinItem && skinItem.properties?.target === 'ball') {
+        return skinItem.properties?.color || defaultColor;
+      }
+      
+      // Check for color theme
+      if (colorItem?.properties?.secondary) {
+        return colorItem.properties.secondary;
+      }
+      
       if (!ballItem) return defaultColor;
       
       const colorProp = ballItem.properties?.color;
@@ -145,8 +168,42 @@ export const TimeLimitGameCanvas = ({ onScoreUpdate, onGameOver, onCoinCollect, 
     };
     
     const getBrickColor = () => {
+      // Check for color theme
+      if (colorItem?.properties?.primary) {
+        return colorItem.properties.primary;
+      }
+      
       if (!brickItem) return defaultColor;
-      return brickItem.properties?.color || defaultColor;
+      
+      const effect = brickItem.properties?.effect;
+      const color = brickItem.properties?.color;
+      
+      if (color) {
+        const brickColors: Record<string, string> = {
+          default: defaultColor,
+          red: "#ef4444",
+          blue: "#3b82f6",
+          green: "#10b981",
+          purple: "#a855f7",
+          yellow: "#eab308",
+          orange: "#f97316",
+          pink: "#ec4899",
+          rainbow: `hsl(${frame % 360}, 70%, 50%)`,
+        };
+        return brickColors[color] || color;
+      }
+      
+      if (effect) {
+        const effectColors: Record<string, string> = {
+          dissolve: "#8b5cf6",
+          particles: "#3b82f6",
+          glow: "#10b981",
+          explode: "#ef4444",
+        };
+        return effectColors[effect] || defaultColor;
+      }
+      
+      return defaultColor;
     };
 
     const paddleColor = getPaddleColor();
@@ -270,19 +327,51 @@ export const TimeLimitGameCanvas = ({ onScoreUpdate, onGameOver, onCoinCollect, 
     // Draw bricks
     bricks.forEach((brick) => {
       if (brick.active) {
-        ctx.fillStyle = brickColor;
+        const brickEffect = brickItem?.properties?.effect;
         
-        if (brickItem?.properties?.effect === "dissolve") {
-             ctx.globalAlpha = 0.8 + Math.sin(frame * 0.1 + brick.x) * 0.2;
+        // Apply brick glow effect
+        if (brickEffect === "glow") {
+          ctx.shadowBlur = 10;
+          ctx.shadowColor = brickColor;
         }
         
+        // Apply dissolve opacity
+        if (brickEffect === "dissolve") {
+          ctx.globalAlpha = 0.8 + Math.sin(frame * 0.1 + brick.x) * 0.2;
+        }
+        
+        ctx.fillStyle = brickColor;
         ctx.fillRect(brick.x, brick.y, brick.width, brick.height);
+        ctx.shadowBlur = 0;
         ctx.globalAlpha = 1;
         
-        if (brickItem?.properties?.effect === "particles") {
-             ctx.fillStyle = `${defaultColor}44`;
-             ctx.fillRect(brick.x + 5, brick.y + 5, 5, 5);
-             ctx.fillRect(brick.x + brick.width - 10, brick.y + 10, 3, 3);
+        // Brick particles effect
+        if (brickEffect === "particles") {
+          for (let i = 0; i < 3; i++) {
+            const offsetX = Math.sin(frame * 0.1 + brick.x + i) * 3;
+            const offsetY = Math.cos(frame * 0.1 + brick.y + i) * 3;
+            ctx.fillStyle = brickColor;
+            ctx.globalAlpha = 0.5;
+            ctx.fillRect(
+              brick.x + brick.width / 2 + offsetX - 2, 
+              brick.y + brick.height / 2 + offsetY - 2, 
+              4, 
+              4
+            );
+          }
+          ctx.globalAlpha = 1;
+        }
+        
+        // Explode effect (pulsing)
+        if (brickEffect === "explode") {
+          const pulseSize = Math.sin(frame * 0.1) * 2;
+          ctx.fillStyle = brickColor;
+          ctx.fillRect(
+            brick.x - pulseSize, 
+            brick.y - pulseSize, 
+            brick.width + pulseSize * 2, 
+            brick.height + pulseSize * 2
+          );
         }
       }
     });
@@ -308,6 +397,7 @@ export const TimeLimitGameCanvas = ({ onScoreUpdate, onGameOver, onCoinCollect, 
     if (!canvas) return;
 
     const { ball, paddle, bricks, coins } = gameStateRef.current;
+    const explosionItem = equippedItems?.explosion;
     gameStateRef.current.frame++;
 
     // Update time
@@ -374,6 +464,41 @@ export const TimeLimitGameCanvas = ({ onScoreUpdate, onGameOver, onCoinCollect, 
           gameStateRef.current.score += 10;
           setScore(gameStateRef.current.score);
           onScoreUpdate?.(gameStateRef.current.score);
+
+          // Draw explosion effect if equipped
+          if (explosionItem) {
+            const ctx = canvas.getContext("2d");
+            const frame = gameStateRef.current.frame;
+            if (ctx) {
+              const explosionType = explosionItem.properties?.type;
+              const explosionColors: Record<string, string> = {
+                fire: "#ef4444",
+                ice: "#3b82f6",
+                lightning: "#eab308",
+                plasma: "#a855f7",
+                blackhole: "#000000",
+                rainbow: `hsl(${frame % 360}, 70%, 50%)`,
+              };
+              const explosionColor = explosionColors[explosionType] || "#ef4444";
+              
+              // Create explosion particles
+              for (let i = 0; i < 8; i++) {
+                const angle = (Math.PI * 2 * i) / 8;
+                ctx.beginPath();
+                ctx.arc(
+                  brick.x + brick.width / 2 + Math.cos(angle) * 10,
+                  brick.y + brick.height / 2 + Math.sin(angle) * 10,
+                  3,
+                  0,
+                  Math.PI * 2
+                );
+                ctx.fillStyle = explosionColor;
+                ctx.globalAlpha = 0.7;
+                ctx.fill();
+                ctx.globalAlpha = 1;
+              }
+            }
+          }
 
           if (brick.hasCoin) {
             coins.push({
