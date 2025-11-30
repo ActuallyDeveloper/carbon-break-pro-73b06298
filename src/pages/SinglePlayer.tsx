@@ -2,6 +2,7 @@ import { Layout } from "@/components/Layout";
 import { GameCanvas } from "@/components/GameCanvas";
 import { TimeLimitGameCanvas } from "@/components/TimeLimitGameCanvas";
 import { InventoryPanel } from "@/components/InventoryPanel";
+import { EquippedItemsPanel } from "@/components/EquippedItemsPanel";
 import { Card } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useState } from "react";
@@ -11,11 +12,13 @@ import { toast } from "sonner";
 import { Target, Clock } from "lucide-react";
 import { useGameSettings } from "@/hooks/useGameSettings";
 import { useInventory } from "@/hooks/useInventory";
+import { useAchievements } from "@/hooks/useAchievements";
 
 const SinglePlayer = () => {
   const { user } = useAuth();
   const { settings } = useGameSettings();
   const { equippedItems } = useInventory('single_player');
+  const { updateProgress } = useAchievements();
   const [currentLevel] = useState(1);
   const [gameMode, setGameMode] = useState<'normal' | 'time-limit'>('normal');
 
@@ -94,12 +97,16 @@ const SinglePlayer = () => {
       await handleCoinCollect(totalCoins);
 
       if (isNewHighScore) {
+        await updateProgress('games_won_single', 1);
         toast.success(
           `New High Score: ${totalScore}! ${timeBonus > 0 ? `(+${timeBonus} time bonus) ` : ''}Earned ${totalCoins} coins!`
         );
       } else {
         toast.info(`Game Over! Score: ${totalScore}, Coins: ${totalCoins}`);
       }
+      
+      await updateProgress('bricks_broken', Math.floor(finalScore / 10));
+      await updateProgress('coins_collected_single', totalCoins);
     } catch (error) {
       console.error("Error saving game:", error);
       toast.error("Failed to save progress");
@@ -130,7 +137,8 @@ const SinglePlayer = () => {
           </TabsList>
 
           <TabsContent value="normal" className="space-y-6">
-            <GameCanvas 
+            <EquippedItemsPanel equippedItems={equippedItems} />
+            <GameCanvas
               onScoreUpdate={handleScoreUpdate} 
               onGameOver={(score, coins) => handleGameOver(score, coins, 0)}
               onCoinCollect={handleCoinCollect}
@@ -140,7 +148,8 @@ const SinglePlayer = () => {
           </TabsContent>
 
           <TabsContent value="time-limit" className="space-y-6">
-            <TimeLimitGameCanvas 
+            <EquippedItemsPanel equippedItems={equippedItems} />
+            <TimeLimitGameCanvas
               onScoreUpdate={handleScoreUpdate} 
               onGameOver={handleGameOver}
               onCoinCollect={handleCoinCollect}

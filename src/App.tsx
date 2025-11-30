@@ -11,6 +11,7 @@ import Home from "./pages/Home";
 import SinglePlayer from "./pages/SinglePlayer";
 import Multiplayer from "./pages/Multiplayer";
 import MultiplayerGame from "./pages/MultiplayerGame";
+import MultiplayerRoomGame from "./pages/MultiplayerRoomGame";
 import SinglePlayerShop from "./pages/SinglePlayerShop";
 import MultiplayerShop from "./pages/MultiplayerShop";
 import Tournaments from "./pages/Tournaments";
@@ -42,6 +43,7 @@ const App = () => (
               <Route path="/single-player" element={<SinglePlayer />} />
               <Route path="/multiplayer" element={<Multiplayer />} />
               <Route path="/multiplayer/:matchId" element={<MultiplayerGame />} />
+              <Route path="/multiplayer/room/:roomCode/game" element={<MultiplayerRoomGame />} />
               <Route path="/single-player-shop" element={<SinglePlayerShop />} />
               <Route path="/multiplayer-shop" element={<MultiplayerShop />} />
               <Route path="/tournaments" element={<Tournaments />} />
