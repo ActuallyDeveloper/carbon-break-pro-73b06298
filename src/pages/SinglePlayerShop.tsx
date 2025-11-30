@@ -7,11 +7,13 @@ import { toast } from "sonner";
 import { ShopItemPreview } from "@/components/ShopItemPreview";
 import { useRealtimeShop } from "@/hooks/useRealtimeShop";
 import { useInventory } from "@/hooks/useInventory";
+import { useAchievements } from "@/hooks/useAchievements";
 
 const SinglePlayerShop = () => {
   const { user } = useAuth();
   const { items, currency, inventory, loading } = useRealtimeShop('single_player');
   const { inventory: userInventory, equipItem, unequipItem } = useInventory('single_player');
+  const { updateProgress } = useAchievements();
 
   const purchaseItem = async (item: any) => {
     if (!user) return;
@@ -58,6 +60,9 @@ const SinglePlayerShop = () => {
       }
 
       toast.success(`Purchased ${item.name}!`);
+      
+      // Track coin spending for achievements
+      await updateProgress('coins_collected_single', -item.price);
     } catch (error: any) {
       toast.error(error.message || "Purchase failed");
     }

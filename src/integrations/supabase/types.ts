@@ -14,6 +14,47 @@ export type Database = {
   }
   public: {
     Tables: {
+      achievements: {
+        Row: {
+          created_at: string | null
+          description: string | null
+          icon: string | null
+          id: string
+          name: string
+          requirement_type: string
+          requirement_value: number
+          reward_item_id: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          description?: string | null
+          icon?: string | null
+          id?: string
+          name: string
+          requirement_type: string
+          requirement_value: number
+          reward_item_id?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          description?: string | null
+          icon?: string | null
+          id?: string
+          name?: string
+          requirement_type?: string
+          requirement_value?: number
+          reward_item_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "achievements_reward_item_id_fkey"
+            columns: ["reward_item_id"]
+            isOneToOne: false
+            referencedRelation: "shop_items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       chat_messages: {
         Row: {
           created_at: string | null
@@ -657,6 +698,38 @@ export type Database = {
         }
         Relationships: []
       }
+      user_achievements: {
+        Row: {
+          achievement_id: string
+          id: string
+          progress: number | null
+          unlocked_at: string | null
+          user_id: string
+        }
+        Insert: {
+          achievement_id: string
+          id?: string
+          progress?: number | null
+          unlocked_at?: string | null
+          user_id: string
+        }
+        Update: {
+          achievement_id?: string
+          id?: string
+          progress?: number | null
+          unlocked_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_achievements_achievement_id_fkey"
+            columns: ["achievement_id"]
+            isOneToOne: false
+            referencedRelation: "achievements"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_currency: {
         Row: {
           created_at: string | null
@@ -730,6 +803,42 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      user_stats: {
+        Row: {
+          bricks_broken: number | null
+          coins_collected_multi: number | null
+          coins_collected_single: number | null
+          games_won_multi: number | null
+          games_won_single: number | null
+          id: string
+          max_streak: number | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          bricks_broken?: number | null
+          coins_collected_multi?: number | null
+          coins_collected_single?: number | null
+          games_won_multi?: number | null
+          games_won_single?: number | null
+          id?: string
+          max_streak?: number | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          bricks_broken?: number | null
+          coins_collected_multi?: number | null
+          coins_collected_single?: number | null
+          games_won_multi?: number | null
+          games_won_single?: number | null
+          id?: string
+          max_streak?: number | null
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
       }
     }
     Views: {

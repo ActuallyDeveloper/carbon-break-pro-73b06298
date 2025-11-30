@@ -3,6 +3,7 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { GameCanvas } from "@/components/GameCanvas";
 import { InventoryPanel } from "@/components/InventoryPanel";
+import { EquippedItemsPanel } from "@/components/EquippedItemsPanel";
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -12,6 +13,7 @@ import { useRealtimeMatch } from "@/hooks/useRealtimeMatch";
 import { useInventory } from "@/hooks/useInventory";
 import { useGameSettings } from "@/hooks/useGameSettings";
 import { useUserPresence } from "@/hooks/useUserPresence";
+import { useAchievements } from "@/hooks/useAchievements";
 import { ArrowLeft, Users } from "lucide-react";
 
 const MultiplayerGame = () => {
@@ -25,6 +27,7 @@ const MultiplayerGame = () => {
   const [opponentScore, setOpponentScore] = useState(0);
   const { opponentState, broadcastPaddleMove, broadcastScoreUpdate } = useRealtimeMatch(matchId || null);
   const { updatePresence } = useUserPresence();
+  const { updateProgress } = useAchievements();
 
   useEffect(() => {
     if (!matchId || !user) return;
@@ -133,9 +136,13 @@ const MultiplayerGame = () => {
 
       if (winnerId === user.id) {
         toast.success(`You won! Final Score: ${finalScore}, Coins: ${totalCoins}`);
+        await updateProgress('games_won_multi', 1);
+        await updateProgress('bricks_broken', Math.floor(finalScore / 10));
       } else {
         toast.info(`Game Over! Final Score: ${finalScore}, Coins: ${totalCoins}`);
       }
+
+      await updateProgress('coins_collected_multi', totalCoins);
 
       setTimeout(() => navigate("/multiplayer"), 3000);
     } catch (error) {
@@ -192,6 +199,7 @@ const MultiplayerGame = () => {
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <div className="lg:col-span-2">
+            <EquippedItemsPanel equippedItems={equippedItems} />
             <GameCanvas
               onScoreUpdate={handleScoreUpdate}
               onGameOver={handleGameOver}
