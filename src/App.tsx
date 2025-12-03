@@ -12,8 +12,7 @@ import SinglePlayer from "./pages/SinglePlayer";
 import Multiplayer from "./pages/Multiplayer";
 import MultiplayerGame from "./pages/MultiplayerGame";
 import MultiplayerRoomGame from "./pages/MultiplayerRoomGame";
-import SinglePlayerShop from "./pages/SinglePlayerShop";
-import MultiplayerShop from "./pages/MultiplayerShop";
+import { SinglePlayerShopPage, MultiplayerShopPage } from "./pages/Shop";
 import Tournaments from "./pages/Tournaments";
 import Social from "./pages/Social";
 import LevelDesigner from "./pages/LevelDesigner";
@@ -43,9 +42,10 @@ const App = () => (
               <Route path="/single-player" element={<SinglePlayer />} />
               <Route path="/multiplayer" element={<Multiplayer />} />
               <Route path="/multiplayer/:matchId" element={<MultiplayerGame />} />
+              <Route path="/multiplayer/game/:roomId" element={<MultiplayerRoomGame />} />
               <Route path="/multiplayer/room/:roomCode/game" element={<MultiplayerRoomGame />} />
-              <Route path="/single-player-shop" element={<SinglePlayerShop />} />
-              <Route path="/multiplayer-shop" element={<MultiplayerShop />} />
+              <Route path="/single-player-shop" element={<SinglePlayerShopPage />} />
+              <Route path="/multiplayer-shop" element={<MultiplayerShopPage />} />
               <Route path="/tournaments" element={<Tournaments />} />
               <Route path="/social" element={<Social />} />
               <Route path="/level-designer" element={<LevelDesigner />} />
