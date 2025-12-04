@@ -29,6 +29,21 @@ export const ShopItemPreview = ({ type, properties, rarity }: ShopItemPreviewPro
 
       const isDark = theme === "dark";
       const baseColor = isDark ? "#ffffff" : "#000000";
+      
+      // Rarity-based background effects
+      if (rarity === 'legendary') {
+        const gradient = ctx.createRadialGradient(width/2, height/2, 0, width/2, height/2, 50);
+        gradient.addColorStop(0, `hsla(${frame % 360}, 60%, 50%, 0.2)`);
+        gradient.addColorStop(1, 'transparent');
+        ctx.fillStyle = gradient;
+        ctx.fillRect(0, 0, width, height);
+      } else if (rarity === 'epic') {
+        ctx.fillStyle = `rgba(168, 85, 247, ${0.1 + Math.sin(frame * 0.05) * 0.05})`;
+        ctx.fillRect(0, 0, width, height);
+      } else if (rarity === 'rare') {
+        ctx.fillStyle = `rgba(59, 130, 246, ${0.05 + Math.sin(frame * 0.03) * 0.03})`;
+        ctx.fillRect(0, 0, width, height);
+      }
 
       switch (type) {
         case "ball":
@@ -43,18 +58,37 @@ export const ShopItemPreview = ({ type, properties, rarity }: ShopItemPreviewPro
           };
           const ballColor = ballColors[properties?.color] || baseColor;
           
+          // Draw trail for legendary/epic
+          if (rarity === 'legendary' || rarity === 'epic') {
+            for (let i = 0; i < 5; i++) {
+              const trailAlpha = (5 - i) / 10;
+              ctx.beginPath();
+              ctx.arc(width / 2 - i * 4, height / 2, 15 - i, 0, Math.PI * 2);
+              if (rarity === 'legendary') {
+                ctx.fillStyle = `hsla(${(frame + i * 20) % 360}, 70%, 50%, ${trailAlpha})`;
+              } else {
+                ctx.fillStyle = `rgba(168, 85, 247, ${trailAlpha})`;
+              }
+              ctx.fill();
+            }
+          }
+          
           ctx.beginPath();
           ctx.arc(width / 2, height / 2, 15, 0, Math.PI * 2);
           ctx.fillStyle = ballColor;
-          ctx.fill();
           
           if (properties?.effect === "fire") {
             ctx.shadowBlur = 15;
             ctx.shadowColor = "#ef4444";
-          } else if (properties?.effect === "glow") {
+          } else if (properties?.effect === "glow" || rarity === 'legendary') {
             ctx.shadowBlur = 20;
-            ctx.shadowColor = ballColor;
+            ctx.shadowColor = rarity === 'legendary' ? `hsl(${frame % 360}, 70%, 50%)` : ballColor;
+          } else if (properties?.effect === "ice") {
+            ctx.shadowBlur = 12;
+            ctx.shadowColor = "#3b82f6";
           }
+          
+          ctx.fill();
           ctx.shadowBlur = 0;
           break;
 
@@ -69,22 +103,29 @@ export const ShopItemPreview = ({ type, properties, rarity }: ShopItemPreviewPro
           };
           const paddleColor = paddleColors[properties?.material] || baseColor;
           
-          ctx.fillStyle = paddleColor;
-          ctx.fillRect(width / 2 - 30, height - 20, 60, 8);
-          
-          if (properties?.effect === "glow") {
-            ctx.shadowBlur = 15;
-            ctx.shadowColor = paddleColor;
-            ctx.fillRect(width / 2 - 30, height - 20, 60, 8);
-            ctx.shadowBlur = 0;
+          if (rarity === 'legendary') {
+            const gradient = ctx.createLinearGradient(width/2 - 30, 0, width/2 + 30, 0);
+            for (let i = 0; i <= 6; i++) {
+              gradient.addColorStop(i / 6, `hsl(${(frame * 2 + i * 60) % 360}, 70%, 50%)`);
+            }
+            ctx.fillStyle = gradient;
+          } else {
+            ctx.fillStyle = paddleColor;
           }
+          
+          if (properties?.effect === "glow" || rarity === 'epic') {
+            ctx.shadowBlur = 15;
+            ctx.shadowColor = rarity === 'epic' ? '#a855f7' : paddleColor;
+          }
+          
+          ctx.fillRect(width / 2 - 30, height - 25, 60, 10);
+          ctx.shadowBlur = 0;
           break;
 
         case "brick":
           const brickX = width / 2 - 25;
-          const brickY = height / 2 - 8;
+          const brickY = height / 2 - 10;
           
-          // Handle brick colors
           const brickColors: Record<string, string> = {
             default: baseColor,
             red: "#ef4444",
@@ -108,42 +149,35 @@ export const ShopItemPreview = ({ type, properties, rarity }: ShopItemPreviewPro
                              effectColors[properties?.effect] || 
                              baseColor;
           
-          ctx.fillStyle = brickColor;
-          
-          if (properties?.effect === "glow") {
+          if (properties?.effect === "glow" || rarity !== 'common') {
             ctx.shadowBlur = 10;
-            ctx.shadowColor = brickColor;
+            ctx.shadowColor = rarity === 'legendary' ? `hsl(${frame % 360}, 70%, 50%)` : 
+                              rarity === 'epic' ? '#a855f7' : brickColor;
           }
           
           if (properties?.effect === "dissolve") {
             ctx.globalAlpha = 0.5 + Math.sin(frame * 0.1) * 0.3;
           }
           
-          ctx.fillRect(brickX, brickY, 50, 16);
+          ctx.fillStyle = rarity === 'legendary' ? `hsl(${frame % 360}, 70%, 50%)` : brickColor;
+          ctx.fillRect(brickX, brickY, 50, 20);
           ctx.shadowBlur = 0;
           ctx.globalAlpha = 1;
           
           if (properties?.effect === "particles") {
-            for (let i = 0; i < 3; i++) {
-              const offsetX = Math.sin(frame * 0.1 + i) * 10;
-              const offsetY = Math.cos(frame * 0.1 + i) * 10;
+            for (let i = 0; i < 4; i++) {
+              const offsetX = Math.sin(frame * 0.1 + i) * 12;
+              const offsetY = Math.cos(frame * 0.1 + i) * 12;
               ctx.fillStyle = brickColor;
-              ctx.globalAlpha = 0.5;
-              ctx.fillRect(brickX + 25 + offsetX, brickY + 8 + offsetY, 3, 3);
+              ctx.globalAlpha = 0.6;
+              ctx.fillRect(brickX + 25 + offsetX - 2, brickY + 10 + offsetY - 2, 4, 4);
             }
             ctx.globalAlpha = 1;
-          }
-          
-          if (properties?.effect === "explode") {
-            const pulseSize = Math.sin(frame * 0.1) * 2;
-            ctx.fillRect(brickX - pulseSize, brickY - pulseSize, 50 + pulseSize * 2, 16 + pulseSize * 2);
           }
           break;
 
         case "aura":
-          const auraRadius = 30 + Math.sin(frame * 0.05) * 5;
-          ctx.beginPath();
-          ctx.arc(width / 2, height / 2, auraRadius, 0, Math.PI * 2);
+          const auraRadius = 25 + Math.sin(frame * 0.05) * 5;
           
           const auraColors: Record<string, string> = {
             flower: "#ec4899",
@@ -153,124 +187,97 @@ export const ShopItemPreview = ({ type, properties, rarity }: ShopItemPreviewPro
             fire: "#ef4444",
             lightning: "#eab308",
             shadow: "#64748b",
+            energy: "#10b981",
           };
           const auraColor = auraColors[properties?.type] || "#a855f7";
           
-          ctx.strokeStyle = auraColor;
-          ctx.lineWidth = 3;
-          ctx.globalAlpha = 0.6;
-          ctx.stroke();
+          // Multiple rings
+          for (let i = 0; i < 3; i++) {
+            ctx.beginPath();
+            ctx.arc(width / 2, height / 2, auraRadius - i * 6, 0, Math.PI * 2);
+            ctx.strokeStyle = rarity === 'legendary' ? `hsl(${(frame + i * 40) % 360}, 70%, 50%)` : auraColor;
+            ctx.lineWidth = 2;
+            ctx.globalAlpha = 0.6 - i * 0.15;
+            ctx.stroke();
+          }
           ctx.globalAlpha = 1;
           
-          if (properties?.animation === "petals") {
-            for (let i = 0; i < 3; i++) {
-              const angle = (frame * 0.02 + i * 2) % (Math.PI * 2);
-              const x = width / 2 + Math.cos(angle) * 25;
-              const y = height / 2 + Math.sin(angle) * 25;
-              ctx.fillStyle = auraColor;
-              ctx.beginPath();
-              ctx.arc(x, y, 3, 0, Math.PI * 2);
-              ctx.fill();
-            }
+          // Orbiting particles
+          for (let i = 0; i < 4; i++) {
+            const angle = (frame * 0.02 + i * 1.57) % (Math.PI * 2);
+            const x = width / 2 + Math.cos(angle) * 20;
+            const y = height / 2 + Math.sin(angle) * 20;
+            ctx.fillStyle = auraColor;
+            ctx.beginPath();
+            ctx.arc(x, y, 3, 0, Math.PI * 2);
+            ctx.fill();
           }
           break;
 
         case "background":
+          ctx.fillStyle = isDark ? '#1a1a2e' : '#f0f0f0';
+          ctx.fillRect(0, 0, width, height);
+          
           if (properties?.theme === "space") {
-            for (let i = 0; i < 20; i++) {
-              const x = ((frame + i * 10) % width);
-              const y = (i * 15) % height;
+            for (let i = 0; i < 25; i++) {
+              const x = ((frame * 0.5 + i * 15) % width);
+              const y = (i * 12) % height;
               ctx.fillStyle = isDark ? "#ffffff" : "#000000";
-              ctx.fillRect(x, y, 1, 1);
+              ctx.globalAlpha = 0.3 + Math.random() * 0.5;
+              ctx.fillRect(x, y, 2, 2);
             }
+            ctx.globalAlpha = 1;
           } else if (properties?.theme === "neon") {
             ctx.strokeStyle = "#10b981";
             ctx.lineWidth = 1;
-            for (let i = 0; i < 5; i++) {
-              const y = (i * 20 + frame % 20);
+            ctx.globalAlpha = 0.4;
+            for (let i = 0; i < 6; i++) {
+              const y = (i * 15 + frame % 15);
               ctx.beginPath();
               ctx.moveTo(0, y);
               ctx.lineTo(width, y);
               ctx.stroke();
             }
+            ctx.globalAlpha = 1;
           } else if (properties?.theme === "matrix") {
             ctx.fillStyle = "#10b981";
             ctx.font = "10px monospace";
-            for (let i = 0; i < 5; i++) {
+            ctx.globalAlpha = 0.3;
+            for (let i = 0; i < 6; i++) {
               const x = i * 20;
               const y = (frame % height);
               ctx.fillText("01", x, y);
             }
+            ctx.globalAlpha = 1;
           }
-          break;
-
-        case "powerup":
-          const powerupIcons: Record<string, string> = {
-            bomb: "💣",
-            magnet: "🧲",
-            laser: "⚡",
-            freeze: "❄️",
-            shield: "🛡️",
-            multiBall: "⚫",
-            paddleSize: "📏",
-            slowBall: "🐌",
-          };
-          const icon = powerupIcons[properties?.type] || "⭐";
-          
-          const powerupColors: Record<string, string> = {
-            bomb: "#ef4444",
-            magnet: "#8b5cf6",
-            laser: "#eab308",
-            freeze: "#3b82f6",
-            shield: "#8b5cf6",
-            multiBall: "#ef4444",
-            paddleSize: "#3b82f6",
-            slowBall: "#10b981",
-          };
-          const powerupColor = powerupColors[properties?.type] || baseColor;
-          
-          // Draw powerup circle
-          ctx.beginPath();
-          ctx.arc(width / 2, height / 2, 20, 0, Math.PI * 2);
-          ctx.fillStyle = powerupColor;
-          ctx.globalAlpha = 0.3;
-          ctx.fill();
-          ctx.globalAlpha = 1;
-          ctx.strokeStyle = powerupColor;
-          ctx.lineWidth = 2;
-          ctx.stroke();
-          
-          // Draw icon
-          ctx.font = "24px Arial";
-          ctx.textAlign = "center";
-          ctx.textBaseline = "middle";
-          const scale = 1 + Math.sin(frame * 0.1) * 0.1;
-          ctx.save();
-          ctx.translate(width / 2, height / 2);
-          ctx.scale(scale, scale);
-          ctx.fillText(icon, 0, 0);
-          ctx.restore();
           break;
 
         case "trail":
-          // Draw ball with trail effect
-          const trailLength = properties?.length || 10;
           const trailColor = properties?.color || baseColor;
           
-          for (let i = 0; i < 5; i++) {
-            const alpha = (i / 5) * 0.5;
-            const offset = i * 8;
+          // Draw animated trail
+          for (let i = 0; i < 6; i++) {
+            const alpha = (6 - i) / 8;
+            const offset = i * 10;
+            const size = 10 - i;
             ctx.beginPath();
-            ctx.arc(width / 2 - offset, height / 2, 10, 0, Math.PI * 2);
-            ctx.fillStyle = trailColor;
-            ctx.globalAlpha = alpha;
+            ctx.arc(width / 2 - offset + 20, height / 2, size, 0, Math.PI * 2);
+            
+            if (properties?.effect === 'fire') {
+              ctx.fillStyle = `rgba(255, ${100 + i * 20}, 0, ${alpha})`;
+            } else if (properties?.effect === 'ice') {
+              ctx.fillStyle = `rgba(59, 130, 246, ${alpha})`;
+            } else if (properties?.effect === 'rainbow' || rarity === 'legendary') {
+              ctx.fillStyle = `hsla(${(frame + i * 30) % 360}, 70%, 50%, ${alpha})`;
+            } else {
+              ctx.fillStyle = `rgba(255, 255, 255, ${alpha * 0.5})`;
+            }
             ctx.fill();
           }
-          ctx.globalAlpha = 1;
           
           // Main ball
           ctx.beginPath();
-          ctx.arc(width / 2, height / 2, 10, 0, Math.PI * 2);
+          ctx.arc(width / 2 + 20, height / 2, 10, 0, Math.PI * 2);
           ctx.fillStyle = trailColor;
           ctx.fill();
           break;
@@ -286,122 +293,30 @@ export const ShopItemPreview = ({ type, properties, rarity }: ShopItemPreviewPro
           };
           const explosionColor = explosionTypes[properties?.type] || "#ef4444";
           
-          // Draw explosion particles in a circle
-          for (let i = 0; i < 8; i++) {
-            const angle = (Math.PI * 2 * i) / 8 + frame * 0.05;
-            const radius = 15 + Math.sin(frame * 0.1) * 5;
-            const x = width / 2 + Math.cos(angle) * radius;
-            const y = height / 2 + Math.sin(angle) * radius;
+          // Explosion ring
+          const ringRadius = 15 + Math.sin(frame * 0.1) * 8;
+          ctx.beginPath();
+          ctx.arc(width / 2, height / 2, ringRadius, 0, Math.PI * 2);
+          ctx.strokeStyle = explosionColor;
+          ctx.lineWidth = 3;
+          ctx.globalAlpha = 0.7;
+          ctx.stroke();
+          ctx.globalAlpha = 1;
+          
+          // Explosion particles
+          for (let i = 0; i < 10; i++) {
+            const angle = (Math.PI * 2 * i) / 10 + frame * 0.03;
+            const particleRadius = 12 + Math.sin(frame * 0.1 + i) * 6;
+            const x = width / 2 + Math.cos(angle) * particleRadius;
+            const y = height / 2 + Math.sin(angle) * particleRadius;
             
             ctx.beginPath();
-            ctx.arc(x, y, 4, 0, Math.PI * 2);
-            ctx.fillStyle = explosionColor;
-            ctx.globalAlpha = 0.7 + Math.sin(frame * 0.1 + i) * 0.3;
+            ctx.arc(x, y, 3 + Math.sin(frame * 0.1 + i) * 1, 0, Math.PI * 2);
+            ctx.fillStyle = rarity === 'legendary' ? `hsl(${(frame + i * 36) % 360}, 70%, 50%)` : explosionColor;
+            ctx.globalAlpha = 0.8;
             ctx.fill();
           }
           ctx.globalAlpha = 1;
-          break;
-
-        case "color":
-          // Draw color theme preview
-          const primaryColor = properties?.primary || baseColor;
-          const secondaryColor = properties?.secondary || primaryColor;
-          
-          // Draw gradient background
-          const gradient = ctx.createLinearGradient(0, 0, width, height);
-          gradient.addColorStop(0, primaryColor);
-          gradient.addColorStop(1, secondaryColor);
-          ctx.fillStyle = gradient;
-          ctx.fillRect(0, 0, width, height);
-          
-          // Draw sparkles if enabled
-          if (properties?.sparkle) {
-            for (let i = 0; i < 5; i++) {
-              const x = (width / 2) + Math.cos(frame * 0.05 + i) * 20;
-              const y = (height / 2) + Math.sin(frame * 0.05 + i) * 20;
-              ctx.fillStyle = "#ffffff";
-              ctx.globalAlpha = 0.5 + Math.sin(frame * 0.1 + i) * 0.5;
-              ctx.fillRect(x, y, 2, 2);
-            }
-            ctx.globalAlpha = 1;
-          }
-          break;
-
-        case "skin":
-          // Draw skin preview based on target
-          const skinTarget = properties?.target || "paddle";
-          const skinColor = properties?.color || baseColor;
-          
-          if (skinTarget === "paddle") {
-            ctx.fillStyle = skinColor;
-            ctx.fillRect(width / 2 - 30, height - 20, 60, 8);
-            if (properties?.pattern === "stripes") {
-              ctx.fillStyle = isDark ? "#ffffff" : "#000000";
-              for (let i = 0; i < 6; i++) {
-                ctx.fillRect(width / 2 - 30 + i * 10, height - 20, 5, 8);
-              }
-            }
-          } else if (skinTarget === "ball") {
-            ctx.beginPath();
-            ctx.arc(width / 2, height / 2, 15, 0, Math.PI * 2);
-            ctx.fillStyle = skinColor;
-            ctx.fill();
-            if (properties?.pattern === "dots") {
-              ctx.fillStyle = isDark ? "#ffffff" : "#000000";
-              for (let i = 0; i < 3; i++) {
-                const angle = (i / 3) * Math.PI * 2;
-                ctx.beginPath();
-                ctx.arc(
-                  width / 2 + Math.cos(angle) * 8,
-                  height / 2 + Math.sin(angle) * 8,
-                  2,
-                  0,
-                  Math.PI * 2
-                );
-                ctx.fill();
-              }
-            }
-          }
-          break;
-
-        case "animation":
-          // Draw animation preview (emote/celebration)
-          const animType = properties?.type || "emote";
-          const animDuration = properties?.duration || 3;
-          
-          ctx.font = "32px Arial";
-          ctx.textAlign = "center";
-          ctx.textBaseline = "middle";
-          
-          const animIcons: Record<string, string> = {
-            emote: "🎉",
-            taunt: "😎",
-            celebration: "🏆",
-            dance: "💃",
-          };
-          const animIcon = animIcons[animType] || "✨";
-          
-          // Animate icon
-          const animScale = 1 + Math.sin(frame * 0.1) * 0.3;
-          ctx.save();
-          ctx.translate(width / 2, height / 2);
-          ctx.scale(animScale, animScale);
-          ctx.fillText(animIcon, 0, 0);
-          ctx.restore();
-          
-          // Draw particles if enabled
-          if (properties?.particles) {
-            for (let i = 0; i < 6; i++) {
-              const angle = (frame * 0.05 + i) % (Math.PI * 2);
-              const radius = 25;
-              const x = width / 2 + Math.cos(angle) * radius;
-              const y = height / 2 + Math.sin(angle) * radius;
-              ctx.fillStyle = `hsl(${(frame + i * 60) % 360}, 70%, 50%)`;
-              ctx.globalAlpha = 0.6;
-              ctx.fillRect(x, y, 3, 3);
-            }
-            ctx.globalAlpha = 1;
-          }
           break;
 
         default:
@@ -421,22 +336,29 @@ export const ShopItemPreview = ({ type, properties, rarity }: ShopItemPreviewPro
         cancelAnimationFrame(animationRef.current);
       }
     };
-  }, [type, properties, theme]);
+  }, [type, properties, theme, rarity]);
 
-  const rarityColors: Record<string, string> = {
+  const rarityBorders: Record<string, string> = {
     common: "border-muted",
-    rare: "border-primary",
-    epic: "border-accent",
-    legendary: "border-destructive",
+    rare: "border-blue-500/50",
+    epic: "border-purple-500/50",
+    legendary: "border-yellow-500/50",
+  };
+
+  const rarityGlows: Record<string, string> = {
+    common: "",
+    rare: "shadow-[0_0_8px_rgba(59,130,246,0.3)]",
+    epic: "shadow-[0_0_12px_rgba(168,85,247,0.4)]",
+    legendary: "shadow-[0_0_16px_rgba(234,179,8,0.5)]",
   };
 
   return (
-    <div className={`border-2 ${rarityColors[rarity]} rounded p-2 bg-background`}>
+    <div className={`border-2 ${rarityBorders[rarity]} ${rarityGlows[rarity]} rounded-lg p-1 bg-background/50 transition-all duration-300`}>
       <canvas 
         ref={canvasRef} 
         width={120} 
         height={80}
-        className="w-full h-auto"
+        className="w-full h-auto rounded"
       />
     </div>
   );

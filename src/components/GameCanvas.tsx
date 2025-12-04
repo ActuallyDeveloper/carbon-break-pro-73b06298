@@ -1,11 +1,11 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Play, Pause, RotateCcw, Trophy, Coins } from "lucide-react";
+import { Play, Pause, RotateCcw, Trophy, Coins, Heart } from "lucide-react";
 import { useTheme } from "@/lib/theme";
 import { useGameSettings } from "@/hooks/useGameSettings";
 import { getDifficultySettings } from "@/lib/gameUtils";
-import { Coin, Brick } from "@/types/game";
+import { Coin, Brick, Difficulty } from "@/types/game";
 import { EquippedItems, PowerUp, PowerUpType } from "@/types/game";
 
 type GameCanvasProps = {
@@ -17,6 +17,7 @@ type GameCanvasProps = {
   onPaddleMove?: (paddleX: number) => void;
   onBallMove?: (ballX: number, ballY: number) => void;
   opponentPaddleX?: number;
+  difficulty?: Difficulty;
 };
 
 interface Particle {
@@ -29,6 +30,18 @@ interface Particle {
   size: number;
 }
 
+interface RarityParticle {
+  x: number;
+  y: number;
+  vx: number;
+  vy: number;
+  life: number;
+  maxLife: number;
+  color: string;
+  size: number;
+  hue?: number;
+}
+
 export const GameCanvas = ({ 
   onScoreUpdate, 
   onGameOver, 
@@ -38,6 +51,7 @@ export const GameCanvas = ({
   onPaddleMove,
   onBallMove,
   opponentPaddleX,
+  difficulty: propDifficulty,
 }: GameCanvasProps) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const { theme } = useTheme();
@@ -45,13 +59,16 @@ export const GameCanvas = ({
   const [isPlaying, setIsPlaying] = useState(false);
   const [score, setScore] = useState(0);
   const [coinsCollected, setCoinsCollected] = useState(0);
+  const [lives, setLives] = useState(3);
   const [touchStartX, setTouchStartX] = useState(0);
+  const [touchHolding, setTouchHolding] = useState(false);
   const [activePowerUps, setActivePowerUps] = useState<Set<PowerUpType>>(new Set());
   const [shieldActive, setShieldActive] = useState(false);
   const [screenShake, setScreenShake] = useState({ x: 0, y: 0 });
   const animationRef = useRef<number>();
   
-  const diffSettings = getDifficultySettings(settings.difficulty);
+  const currentDifficulty = propDifficulty || settings.difficulty;
+  const diffSettings = getDifficultySettings(currentDifficulty);
   
   const gameStateRef = useRef({
     ball: { x: 300, y: 300, dx: diffSettings.ballSpeed, dy: -diffSettings.ballSpeed, radius: 8 },
@@ -61,11 +78,52 @@ export const GameCanvas = ({
     powerUps: [] as PowerUp[],
     balls: [] as Array<{ x: number, y: number, dx: number, dy: number, radius: number }>,
     particles: [] as Particle[],
+    rarityParticles: [] as RarityParticle[],
     ballTrail: [] as Array<{x: number, y: number, alpha: number}>,
     score: 0,
     coinsCollected: 0,
+    lives: 3,
     frame: 0,
   });
+
+  // Get item rarity from equipped items
+  const getItemRarity = useCallback((itemType: string): string => {
+    const item = equippedItems?.[itemType as keyof EquippedItems];
+    return (item?.properties as any)?.rarity || 'common';
+  }, [equippedItems]);
+
+  // Create rarity-based particles
+  const createRarityParticles = useCallback((x: number, y: number, rarity: string) => {
+    const count = rarity === 'legendary' ? 8 : rarity === 'epic' ? 5 : rarity === 'rare' ? 3 : 0;
+    
+    for (let i = 0; i < count; i++) {
+      const angle = (Math.PI * 2 * i) / count;
+      const speed = 1 + Math.random() * 2;
+      
+      let color = '#ffffff';
+      let hue = undefined;
+      
+      if (rarity === 'legendary') {
+        hue = Math.random() * 360; // Rainbow
+      } else if (rarity === 'epic') {
+        color = '#a855f7'; // Purple glow
+      } else if (rarity === 'rare') {
+        color = '#3b82f6'; // Blue shine
+      }
+      
+      gameStateRef.current.rarityParticles.push({
+        x,
+        y,
+        vx: Math.cos(angle) * speed,
+        vy: Math.sin(angle) * speed,
+        life: 40 + Math.random() * 20,
+        maxLife: 60,
+        color,
+        size: rarity === 'legendary' ? 4 : 3,
+        hue,
+      });
+    }
+  }, []);
 
   const activatePowerUp = (type: PowerUpType) => {
     const { ball, paddle, balls } = gameStateRef.current;
@@ -122,7 +180,6 @@ export const GameCanvas = ({
       });
     }
     
-    // Screen shake
     const shakeIntensity = 2 * intensity;
     setScreenShake({
       x: (Math.random() - 0.5) * shakeIntensity * 2,
@@ -131,7 +188,7 @@ export const GameCanvas = ({
     setTimeout(() => setScreenShake({ x: 0, y: 0 }), 100);
   };
 
-  const initGame = () => {
+  const initGame = useCallback(() => {
     const bricks: Brick[] = [];
     const brickRowCount = 5;
     const brickColumnCount = 8;
@@ -159,6 +216,7 @@ export const GameCanvas = ({
     gameStateRef.current.powerUps = [];
     gameStateRef.current.balls = [];
     gameStateRef.current.particles = [];
+    gameStateRef.current.rarityParticles = [];
     gameStateRef.current.ballTrail = [];
     gameStateRef.current.ball = { 
       x: 300, 
@@ -171,14 +229,15 @@ export const GameCanvas = ({
     gameStateRef.current.paddle.width = 80;
     gameStateRef.current.score = 0;
     gameStateRef.current.coinsCollected = 0;
+    gameStateRef.current.lives = 3;
     setScore(0);
     setCoinsCollected(0);
+    setLives(3);
     setActivePowerUps(new Set());
     setShieldActive(false);
     setScreenShake({ x: 0, y: 0 });
-  };
+  }, [diffSettings]);
 
-  // === COLOR HELPERS ===
   const getItemColor = (itemType: 'paddle' | 'ball' | 'brick', frame: number): string => {
     const isDark = theme === 'dark';
     const defaultColor = isDark ? '#ffffff' : '#000000';
@@ -187,12 +246,10 @@ export const GameCanvas = ({
     const colorItem = equippedItems?.color;
     const specificItem = equippedItems?.[itemType];
     
-    // Check skin first
     if (skinItem?.properties?.target === itemType) {
       return skinItem.properties?.color || defaultColor;
     }
     
-    // Check color theme
     if (colorItem?.properties) {
       if (itemType === 'ball' && colorItem.properties.secondary) {
         return colorItem.properties.secondary;
@@ -202,7 +259,6 @@ export const GameCanvas = ({
       }
     }
     
-    // Check specific item
     if (!specificItem) return defaultColor;
     
     const color = specificItem.properties?.color;
@@ -226,7 +282,6 @@ export const GameCanvas = ({
     if (color && colorMap[color]) return colorMap[color];
     if (color) return color;
     
-    // Material-based colors for paddle
     if (itemType === 'paddle') {
       const material = specificItem.properties?.material;
       const materialMap: Record<string, string> = {
@@ -242,7 +297,6 @@ export const GameCanvas = ({
     return defaultColor;
   };
 
-  // === RENDERING HELPERS ===
   const drawBackground = (ctx: CanvasRenderingContext2D, canvas: HTMLCanvasElement, frame: number) => {
     const backgroundItem = equippedItems?.background;
     const isDark = theme === 'dark';
@@ -319,11 +373,9 @@ export const GameCanvas = ({
     const centerX = paddle.x + paddle.width / 2;
     const centerY = paddle.y + paddle.height / 2;
     
-    // Animated pulsing aura
     const baseRadius = 50;
     const pulseRadius = baseRadius + Math.sin(frame * 0.08) * 8;
     
-    // Multiple aura rings for depth
     for (let i = 0; i < 3; i++) {
       ctx.beginPath();
       ctx.arc(centerX, centerY, pulseRadius - i * 10, 0, Math.PI * 2);
@@ -336,6 +388,60 @@ export const GameCanvas = ({
     ctx.globalAlpha = 1;
   };
 
+  const drawRarityEffects = (ctx: CanvasRenderingContext2D, ball: any, paddle: any, frame: number) => {
+    const ballRarity = getItemRarity('ball');
+    const paddleRarity = getItemRarity('paddle');
+    
+    // Legendary rainbow trail
+    if (ballRarity === 'legendary') {
+      for (let i = 0; i < 5; i++) {
+        const hue = (frame * 5 + i * 30) % 360;
+        const offset = i * 3;
+        ctx.beginPath();
+        ctx.arc(ball.x - ball.dx * offset * 0.5, ball.y - ball.dy * offset * 0.5, ball.radius * (1 - i * 0.15), 0, Math.PI * 2);
+        ctx.fillStyle = `hsla(${hue}, 80%, 60%, ${0.6 - i * 0.1})`;
+        ctx.fill();
+      }
+    }
+    
+    // Epic pulsing glow
+    if (ballRarity === 'epic') {
+      const glowSize = ball.radius + 5 + Math.sin(frame * 0.1) * 3;
+      ctx.beginPath();
+      ctx.arc(ball.x, ball.y, glowSize, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(168, 85, 247, 0.3)';
+      ctx.fill();
+    }
+    
+    // Rare shine effect
+    if (ballRarity === 'rare') {
+      const shineAngle = (frame * 0.05) % (Math.PI * 2);
+      const shineX = ball.x + Math.cos(shineAngle) * ball.radius * 0.5;
+      const shineY = ball.y + Math.sin(shineAngle) * ball.radius * 0.5;
+      ctx.beginPath();
+      ctx.arc(shineX, shineY, 3, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
+      ctx.fill();
+    }
+    
+    // Paddle rarity effects
+    if (paddleRarity === 'legendary') {
+      const gradient = ctx.createLinearGradient(paddle.x, paddle.y, paddle.x + paddle.width, paddle.y);
+      for (let i = 0; i <= 10; i++) {
+        const hue = (frame * 3 + i * 36) % 360;
+        gradient.addColorStop(i / 10, `hsla(${hue}, 70%, 50%, 0.5)`);
+      }
+      ctx.fillStyle = gradient;
+      ctx.fillRect(paddle.x, paddle.y - 3, paddle.width, paddle.height + 6);
+    }
+    
+    if (paddleRarity === 'epic') {
+      const pulseAlpha = 0.3 + Math.sin(frame * 0.1) * 0.2;
+      ctx.fillStyle = `rgba(168, 85, 247, ${pulseAlpha})`;
+      ctx.fillRect(paddle.x - 2, paddle.y - 2, paddle.width + 4, paddle.height + 4);
+    }
+  };
+
   const drawTrail = (ctx: CanvasRenderingContext2D, ballTrail: any[], ball: any, frame: number) => {
     const trailItem = equippedItems?.trail;
     const ballItem = equippedItems?.ball;
@@ -345,16 +451,12 @@ export const GameCanvas = ({
     const trailEffect = trailItem?.properties?.effect || 'basic';
     let trailColor = trailItem?.properties?.color || getItemColor('ball', frame);
     
-    // Parse color to rgb for alpha
     let r = 239, g = 68, b = 68;
     if (trailColor.startsWith('#')) {
       const bigint = parseInt(trailColor.slice(1), 16);
       r = (bigint >> 16) & 255;
       g = (bigint >> 8) & 255;
       b = bigint & 255;
-    } else if (trailColor.startsWith('hsl')) {
-      // For rainbow, use current frame color
-      trailColor = `hsl(${frame % 360}, 70%, 50%)`;
     }
     
     ballTrail.forEach((pos, index) => {
@@ -395,11 +497,7 @@ export const GameCanvas = ({
           break;
           
         default:
-          if (trailColor.startsWith('rgba')) {
-            ctx.fillStyle = trailColor;
-          } else {
-            ctx.fillStyle = `rgba(${r}, ${g}, ${b}, ${alpha})`;
-          }
+          ctx.fillStyle = `rgba(${r}, ${g}, ${b}, ${alpha})`;
       }
       
       ctx.fill();
@@ -441,7 +539,6 @@ export const GameCanvas = ({
         ctx.fillStyle = ballColor;
         ctx.shadowBlur = 15;
         ctx.shadowColor = '#eab308';
-        // Lightning effect
         for (let i = 0; i < 3; i++) {
           const angle = (frame + i * 120) * 0.1;
           const x2 = ball.x + Math.cos(angle) * ball.radius * 1.5;
@@ -492,7 +589,6 @@ export const GameCanvas = ({
     } else if (effect === 'sparkle') {
       ctx.shadowBlur = 10;
       ctx.shadowColor = paddleColor;
-      // Add sparkle particles
       for (let i = 0; i < 3; i++) {
         const sparkleX = paddle.x + Math.random() * paddle.width;
         const sparkleY = paddle.y + Math.random() * paddle.height;
@@ -507,7 +603,6 @@ export const GameCanvas = ({
     ctx.fillRect(paddle.x, paddle.y, paddle.width, paddle.height);
     ctx.shadowBlur = 0;
     
-    // Shield effect
     if (shieldActive) {
       ctx.strokeStyle = 'rgba(59, 130, 246, 0.6)';
       ctx.lineWidth = 4;
@@ -543,7 +638,6 @@ export const GameCanvas = ({
         case 'particles':
           ctx.fillStyle = brickColor;
           ctx.fillRect(brick.x, brick.y, brick.width, brick.height);
-          // Floating particles
           for (let i = 0; i < 4; i++) {
             const offsetX = Math.sin(frame * 0.05 + brick.x + i) * 4;
             const offsetY = Math.cos(frame * 0.05 + brick.y + i) * 4;
@@ -574,7 +668,6 @@ export const GameCanvas = ({
         case 'shatter':
           ctx.fillStyle = brickColor;
           ctx.fillRect(brick.x, brick.y, brick.width, brick.height);
-          // Crack lines
           ctx.strokeStyle = 'rgba(0, 0, 0, 0.3)';
           ctx.lineWidth = 1;
           ctx.beginPath();
@@ -611,40 +704,100 @@ export const GameCanvas = ({
       
       particle.x += particle.vx;
       particle.y += particle.vy;
-      particle.vy += 0.1; // Gravity
+      particle.vy += 0.1;
       particle.life -= 1;
     });
     ctx.globalAlpha = 1;
   };
 
-  const drawGame = () => {
+  const drawRarityParticles = (ctx: CanvasRenderingContext2D, particles: RarityParticle[], frame: number) => {
+    particles.forEach((particle, index) => {
+      if (particle.life <= 0) {
+        particles.splice(index, 1);
+        return;
+      }
+      
+      ctx.beginPath();
+      ctx.arc(particle.x, particle.y, particle.size, 0, Math.PI * 2);
+      
+      if (particle.hue !== undefined) {
+        ctx.fillStyle = `hsla(${(particle.hue + frame * 5) % 360}, 80%, 60%, ${particle.life / particle.maxLife})`;
+      } else {
+        ctx.fillStyle = particle.color;
+        ctx.globalAlpha = particle.life / particle.maxLife;
+      }
+      
+      ctx.fill();
+      ctx.closePath();
+      
+      particle.x += particle.vx;
+      particle.y += particle.vy;
+      particle.life -= 1;
+    });
+    ctx.globalAlpha = 1;
+  };
+
+  const drawLives = (ctx: CanvasRenderingContext2D, canvas: HTMLCanvasElement, currentLives: number) => {
+    const heartSize = 20;
+    const spacing = 5;
+    const startX = canvas.width - (heartSize + spacing) * 3;
+    const startY = 15;
+    
+    for (let i = 0; i < 3; i++) {
+      const x = startX + i * (heartSize + spacing);
+      ctx.fillStyle = i < currentLives ? '#ef4444' : 'rgba(239, 68, 68, 0.2)';
+      
+      // Draw heart shape
+      ctx.beginPath();
+      ctx.moveTo(x + heartSize / 2, startY + heartSize * 0.3);
+      ctx.bezierCurveTo(
+        x + heartSize / 2, startY,
+        x, startY,
+        x, startY + heartSize * 0.3
+      );
+      ctx.bezierCurveTo(
+        x, startY + heartSize * 0.6,
+        x + heartSize / 2, startY + heartSize * 0.8,
+        x + heartSize / 2, startY + heartSize
+      );
+      ctx.bezierCurveTo(
+        x + heartSize / 2, startY + heartSize * 0.8,
+        x + heartSize, startY + heartSize * 0.6,
+        x + heartSize, startY + heartSize * 0.3
+      );
+      ctx.bezierCurveTo(
+        x + heartSize, startY,
+        x + heartSize / 2, startY,
+        x + heartSize / 2, startY + heartSize * 0.3
+      );
+      ctx.fill();
+    }
+  };
+
+  const drawGame = useCallback(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
 
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
-    const { ball, paddle, bricks, coins, powerUps, balls, particles, ballTrail, frame } = gameStateRef.current;
+    const { ball, paddle, bricks, coins, powerUps, balls, particles, rarityParticles, ballTrail, frame } = gameStateRef.current;
     
-    // Apply screen shake
     ctx.save();
     ctx.translate(screenShake.x, screenShake.y);
     
-    // Clear canvas
     ctx.clearRect(-10, -10, canvas.width + 20, canvas.height + 20);
 
-    // Draw all layers in order
     drawBackground(ctx, canvas, frame);
     drawAura(ctx, paddle, frame);
     drawTrail(ctx, ballTrail, ball, frame);
+    drawRarityEffects(ctx, ball, paddle, frame);
     drawBall(ctx, ball, frame);
     
-    // Draw extra balls
     balls.forEach(extraBall => drawBall(ctx, extraBall, frame));
     
     drawPaddle(ctx, paddle, frame);
     
-    // Opponent paddle
     if (opponentPaddleX !== undefined && opponentPaddleX !== null) {
       ctx.fillStyle = 'rgba(239, 68, 68, 0.4)';
       ctx.fillRect(opponentPaddleX, paddle.y + 30, paddle.width, paddle.height);
@@ -652,8 +805,8 @@ export const GameCanvas = ({
     
     drawBricks(ctx, bricks, frame);
     drawParticles(ctx, particles);
+    drawRarityParticles(ctx, rarityParticles, frame);
 
-    // Draw coins
     coins.forEach((coin) => {
       if (!coin.collected) {
         ctx.fillStyle = theme === 'dark' ? '#ffd700' : '#ff8c00';
@@ -666,7 +819,6 @@ export const GameCanvas = ({
       }
     });
 
-    // Draw power-ups
     powerUps.forEach((powerUp) => {
       if (!powerUp.collected) {
         const powerUpColors: Record<PowerUpType, string> = {
@@ -698,10 +850,12 @@ export const GameCanvas = ({
       }
     });
     
+    drawLives(ctx, canvas, gameStateRef.current.lives);
+    
     ctx.restore();
-  };
+  }, [theme, equippedItems, screenShake, opponentPaddleX, getItemRarity]);
 
-  const updateGame = () => {
+  const updateGame = useCallback(() => {
     if (!isPlaying) return;
 
     const canvas = canvasRef.current;
@@ -711,13 +865,11 @@ export const GameCanvas = ({
     const { ball, paddle, bricks, coins, powerUps, balls, ballTrail, frame } = gameStateRef.current;
     const explosionItem = equippedItems?.explosion;
 
-    // Move ball
     ball.x += ball.dx;
     ball.y += ball.dy;
 
     onBallMove?.(ball.x, ball.y);
 
-    // Update ball trail
     const trailItem = equippedItems?.trail;
     const ballItem = equippedItems?.ball;
     if (ballItem || trailItem) {
@@ -728,7 +880,14 @@ export const GameCanvas = ({
       }
     }
 
-    // Wall collision
+    // Create rarity particles periodically
+    if (frame % 10 === 0) {
+      const ballRarity = getItemRarity('ball');
+      if (ballRarity !== 'common') {
+        createRarityParticles(ball.x, ball.y, ballRarity);
+      }
+    }
+
     if (ball.x + ball.dx > canvas.width - ball.radius || ball.x + ball.dx < ball.radius) {
       ball.dx = -ball.dx;
     }
@@ -736,7 +895,6 @@ export const GameCanvas = ({
       ball.dy = -ball.dy;
     }
 
-    // Paddle collision
     if (
       ball.y + ball.dy > paddle.y - ball.radius &&
       ball.x > paddle.x &&
@@ -745,7 +903,6 @@ export const GameCanvas = ({
       ball.dy = -ball.dy;
     }
 
-    // Bottom collision
     if (ball.y + ball.dy > canvas.height) {
       if (shieldActive) {
         ball.y = paddle.y - ball.radius;
@@ -757,13 +914,23 @@ export const GameCanvas = ({
           return next;
         });
       } else {
-        setIsPlaying(false);
-        onGameOver?.(gameStateRef.current.score, gameStateRef.current.coinsCollected);
-        return;
+        gameStateRef.current.lives--;
+        setLives(gameStateRef.current.lives);
+        
+        if (gameStateRef.current.lives <= 0) {
+          setIsPlaying(false);
+          onGameOver?.(gameStateRef.current.score, gameStateRef.current.coinsCollected);
+          return;
+        } else {
+          // Reset ball position
+          ball.x = 300;
+          ball.y = 300;
+          ball.dx = diffSettings.ballSpeed;
+          ball.dy = -diffSettings.ballSpeed;
+        }
       }
     }
 
-    // Brick collision
     bricks.forEach((brick) => {
       if (brick.active) {
         if (
@@ -778,7 +945,6 @@ export const GameCanvas = ({
           setScore(gameStateRef.current.score);
           onScoreUpdate?.(gameStateRef.current.score);
 
-          // Explosion effect
           if (explosionItem) {
             const explosionType = explosionItem.properties?.type || explosionItem.properties?.effect;
             const explosionColors: Record<string, string> = {
@@ -801,7 +967,6 @@ export const GameCanvas = ({
             );
           }
 
-          // Drop coin
           if (brick.hasCoin) {
             coins.push({
               x: brick.x + brick.width / 2,
@@ -812,7 +977,6 @@ export const GameCanvas = ({
             });
           }
 
-          // Drop power-up
           if (enablePowerUps && Math.random() < 0.15) {
             const powerUpTypes: PowerUpType[] = ['multiBall', 'paddleSize', 'slowBall', 'shield'];
             const randomType = powerUpTypes[Math.floor(Math.random() * powerUpTypes.length)];
@@ -828,7 +992,6 @@ export const GameCanvas = ({
       }
     });
 
-    // Update coins
     coins.forEach((coin) => {
       if (!coin.collected) {
         coin.y += coin.dy;
@@ -851,7 +1014,6 @@ export const GameCanvas = ({
       }
     });
 
-    // Update power-ups
     powerUps.forEach((powerUp) => {
       if (!powerUp.collected) {
         powerUp.y += powerUp.dy;
@@ -872,7 +1034,6 @@ export const GameCanvas = ({
       }
     });
 
-    // Update extra balls
     balls.forEach((extraBall, index) => {
       extraBall.x += extraBall.dx;
       extraBall.y += extraBall.dy;
@@ -916,7 +1077,7 @@ export const GameCanvas = ({
 
     drawGame();
     animationRef.current = requestAnimationFrame(updateGame);
-  };
+  }, [isPlaying, equippedItems, enablePowerUps, shieldActive, diffSettings, onScoreUpdate, onGameOver, onCoinCollect, onBallMove, drawGame, getItemRarity, createRarityParticles]);
 
   useEffect(() => {
     initGame();
@@ -954,12 +1115,15 @@ export const GameCanvas = ({
       if (!isPlaying) drawGame();
     };
 
+    // Improved touch controls - hold and swipe with desktop-like speed
     const handleTouchStart = (e: TouchEvent) => {
+      e.preventDefault();
       const touch = e.touches[0];
       const canvas = canvasRef.current;
       if (!canvas) return;
       const rect = canvas.getBoundingClientRect();
       setTouchStartX(touch.clientX - rect.left);
+      setTouchHolding(true);
     };
 
     const handleTouchMove = (e: TouchEvent) => {
@@ -971,34 +1135,42 @@ export const GameCanvas = ({
       const rect = canvas.getBoundingClientRect();
       const x = touch.clientX - rect.left;
       const { paddle } = gameStateRef.current;
-
-      if (settings.mobileControl === 'swipe') {
-        const diff = x - touchStartX;
-        paddle.x = Math.max(0, Math.min(paddle.x + diff, canvas.width - paddle.width));
-        setTouchStartX(x);
-      } else if (settings.mobileControl === 'tap' || settings.mobileControl === 'touch') {
-        paddle.x = Math.max(0, Math.min(x - paddle.width / 2, canvas.width - paddle.width));
-      }
+      
+      // Use direct position control like desktop hover - matches desktop speed
+      const targetX = Math.max(0, Math.min(x - paddle.width / 2, canvas.width - paddle.width));
+      paddle.x = targetX;
       
       onPaddleMove?.(paddle.x);
       if (!isPlaying) drawGame();
     };
 
+    const handleTouchEnd = () => {
+      setTouchHolding(false);
+    };
+
     window.addEventListener("keydown", handleKeyDown);
     window.addEventListener("mousemove", handleMouseMove);
-    window.addEventListener("touchstart", handleTouchStart);
-    window.addEventListener("touchmove", handleTouchMove, { passive: false });
+    
+    const canvas = canvasRef.current;
+    if (canvas) {
+      canvas.addEventListener("touchstart", handleTouchStart, { passive: false });
+      canvas.addEventListener("touchmove", handleTouchMove, { passive: false });
+      canvas.addEventListener("touchend", handleTouchEnd);
+    }
 
     return () => {
       window.removeEventListener("keydown", handleKeyDown);
       window.removeEventListener("mousemove", handleMouseMove);
-      window.removeEventListener("touchstart", handleTouchStart);
-      window.removeEventListener("touchmove", handleTouchMove);
+      if (canvas) {
+        canvas.removeEventListener("touchstart", handleTouchStart);
+        canvas.removeEventListener("touchmove", handleTouchMove);
+        canvas.removeEventListener("touchend", handleTouchEnd);
+      }
       if (animationRef.current) {
         cancelAnimationFrame(animationRef.current);
       }
     };
-  }, [settings, isPlaying]);
+  }, [settings, isPlaying, initGame, drawGame, onPaddleMove]);
 
   useEffect(() => {
     if (isPlaying) {
@@ -1006,7 +1178,7 @@ export const GameCanvas = ({
     } else if (animationRef.current) {
       cancelAnimationFrame(animationRef.current);
     }
-  }, [isPlaying]);
+  }, [isPlaying, updateGame]);
 
   const handleReset = () => {
     setIsPlaying(false);
@@ -1035,6 +1207,14 @@ export const GameCanvas = ({
                 <p className="text-sm text-muted-foreground font-medium">Coins</p>
                 <p className="text-3xl font-bold tracking-tight text-yellow-600 dark:text-yellow-400 transition-all duration-200">{coinsCollected}</p>
               </div>
+            </div>
+            <div className="flex items-center gap-2">
+              {[...Array(3)].map((_, i) => (
+                <Heart
+                  key={i}
+                  className={`h-6 w-6 transition-all ${i < lives ? 'text-red-500 fill-red-500' : 'text-red-500/30'}`}
+                />
+              ))}
             </div>
           </div>
           <div className="flex gap-2">
@@ -1073,7 +1253,7 @@ export const GameCanvas = ({
             ref={canvasRef}
             width={600}
             height={600}
-            className="w-full h-full border-2 border-border bg-background rounded-lg transition-all duration-300"
+            className="w-full h-full bg-background rounded-lg transition-all duration-300"
             style={{ touchAction: "none" }}
           />
         </div>
@@ -1084,9 +1264,9 @@ export const GameCanvas = ({
             {settings.desktopControl === 'keys' && 'Use A/D Keys or Arrows'}
             {settings.desktopControl === 'hover' && 'Move mouse to control paddle'}
             {' • '}
-            Difficulty: <span className="capitalize font-bold">{settings.difficulty}</span>
+            Difficulty: <span className="capitalize font-bold">{currentDifficulty}</span>
             {' • '}
-            Collect coins for extra currency!
+            Lives: {lives}/3
           </p>
         </div>
       </Card>

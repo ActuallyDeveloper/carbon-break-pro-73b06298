@@ -5,22 +5,30 @@ import { InventoryPanel } from "@/components/InventoryPanel";
 import { EquippedItemsPanel } from "@/components/EquippedItemsPanel";
 import { Card } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { toast } from "sonner";
-import { Target, Clock } from "lucide-react";
+import { Target, Clock, Zap } from "lucide-react";
 import { useGameSettings } from "@/hooks/useGameSettings";
 import { useInventory } from "@/hooks/useInventory";
 import { useAchievements } from "@/hooks/useAchievements";
+import { Difficulty } from "@/types/game";
 
 const SinglePlayer = () => {
   const { user } = useAuth();
-  const { settings } = useGameSettings();
+  const { settings, updateSettings } = useGameSettings();
   const { equippedItems } = useInventory('single_player');
   const { updateProgress } = useAchievements();
   const [currentLevel] = useState(1);
   const [gameMode, setGameMode] = useState<'normal' | 'time-limit'>('normal');
+  const [difficulty, setDifficulty] = useState<Difficulty>(settings.difficulty);
+
+  const handleDifficultyChange = (value: Difficulty) => {
+    setDifficulty(value);
+    updateSettings({ difficulty: value });
+  };
 
   const handleScoreUpdate = async (score: number) => {
     if (!user) return;
@@ -116,12 +124,31 @@ const SinglePlayer = () => {
   return (
     <Layout>
       <div className="space-y-6">
-        <div>
-          <div className="flex items-center gap-3 mb-2">
-            <Target className="h-8 w-8" />
-            <h1 className="text-4xl font-bold">Single Player</h1>
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+          <div>
+            <div className="flex items-center gap-3 mb-2">
+              <Target className="h-8 w-8" />
+              <h1 className="text-4xl font-bold">Single Player</h1>
+            </div>
+            <p className="text-lg text-muted-foreground">Level {currentLevel} • Break all bricks to progress</p>
           </div>
-          <p className="text-lg text-muted-foreground">Level {currentLevel} • Break all bricks to progress</p>
+          
+          <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2">
+              <Zap className="h-4 w-4 text-muted-foreground" />
+              <span className="text-sm font-medium">Difficulty:</span>
+              <Select value={difficulty} onValueChange={handleDifficultyChange}>
+                <SelectTrigger className="w-32">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="easy">Easy</SelectItem>
+                  <SelectItem value="medium">Medium</SelectItem>
+                  <SelectItem value="hard">Hard</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
         </div>
 
         <Tabs value={gameMode} onValueChange={(v) => setGameMode(v as 'normal' | 'time-limit')}>
@@ -137,18 +164,19 @@ const SinglePlayer = () => {
           </TabsList>
 
           <TabsContent value="normal" className="space-y-6">
-            <EquippedItemsPanel equippedItems={equippedItems} />
+            <EquippedItemsPanel equippedItems={equippedItems} mode="single_player" />
             <GameCanvas
               onScoreUpdate={handleScoreUpdate} 
               onGameOver={(score, coins) => handleGameOver(score, coins, 0)}
               onCoinCollect={handleCoinCollect}
               equippedItems={equippedItems}
               enablePowerUps={settings.powerUps.enabled && settings.powerUps.singlePlayer}
+              difficulty={difficulty}
             />
           </TabsContent>
 
           <TabsContent value="time-limit" className="space-y-6">
-            <EquippedItemsPanel equippedItems={equippedItems} />
+            <EquippedItemsPanel equippedItems={equippedItems} mode="single_player" />
             <TimeLimitGameCanvas
               onScoreUpdate={handleScoreUpdate} 
               onGameOver={handleGameOver}
@@ -163,8 +191,10 @@ const SinglePlayer = () => {
             <h3 className="text-lg font-bold mb-3">How to Play</h3>
             <ul className="space-y-2 text-sm text-muted-foreground">
               <li className="transition-all duration-200 hover:translate-x-1">• Control paddle with keyboard or mouse (check Settings)</li>
+              <li className="transition-all duration-200 hover:translate-x-1">• On mobile, touch and drag to move paddle</li>
               <li className="transition-all duration-200 hover:translate-x-1">• Bounce the ball to break all bricks</li>
               <li className="transition-all duration-200 hover:translate-x-1">• Collect falling coins for currency</li>
+              <li className="transition-all duration-200 hover:translate-x-1">• You have 3 lives - don't let the ball fall!</li>
               <li className="transition-all duration-200 hover:translate-x-1">• Each brick gives you 10 points</li>
               <li className="transition-all duration-200 hover:translate-x-1">• Higher difficulty = more coins & faster gameplay</li>
               {gameMode === 'time-limit' && (
