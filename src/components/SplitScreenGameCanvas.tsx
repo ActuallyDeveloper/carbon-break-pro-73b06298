@@ -184,9 +184,14 @@ const SplitScreenCanvas = ({
       }
     }
 
+    // Ensure ball has proper initial velocity
+    const initialSpeed = Math.max(diffSettings.ballSpeed, 3);
+    const initialDx = initialSpeed * (Math.random() > 0.5 ? 1 : -1);
+    const initialDy = -initialSpeed;
+
     gameStateRef.current = {
-      ball: { x: 200, y: 250, dx: diffSettings.ballSpeed, dy: -diffSettings.ballSpeed, radius: 6 },
-      paddle: { x: 160, y: 370, width: 70, height: 8 },
+      ball: { x: 200, y: 300, dx: initialDx, dy: initialDy, radius: 8 },
+      paddle: { x: 160, y: 370, width: 80, height: 10 },
       bricks,
       coins: [],
       powerUps: [],
@@ -349,11 +354,12 @@ const SplitScreenCanvas = ({
         return;
       }
       
-      // Reset ball position
+      // Reset ball position with proper velocity
+      const resetSpeed = Math.max(diffSettings.ballSpeed, 3);
       ball.x = 200;
-      ball.y = 250;
-      ball.dx = diffSettings.ballSpeed * (Math.random() > 0.5 ? 1 : -1);
-      ball.dy = -diffSettings.ballSpeed;
+      ball.y = 300;
+      ball.dx = resetSpeed * (Math.random() > 0.5 ? 1 : -1);
+      ball.dy = -resetSpeed;
     }
 
     // Paddle collision

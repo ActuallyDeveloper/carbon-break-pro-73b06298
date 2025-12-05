@@ -134,18 +134,23 @@ export const TimeLimitGameCanvas = ({
       }
     }
 
+    // Ensure ball has proper initial velocity
+    const initialSpeed = Math.max(diffSettings.ballSpeed, 3);
+    const initialDx = initialSpeed * (Math.random() > 0.5 ? 1 : -1);
+    const initialDy = -initialSpeed;
+
     gameStateRef.current.bricks = bricks;
     gameStateRef.current.coins = [];
     gameStateRef.current.particles = [];
     gameStateRef.current.ballTrail = [];
     gameStateRef.current.ball = { 
       x: 300, 
-      y: 300, 
-      dx: diffSettings.ballSpeed, 
-      dy: -diffSettings.ballSpeed, 
-      radius: 8 
+      y: 450, 
+      dx: initialDx, 
+      dy: initialDy, 
+      radius: 10 
     };
-    gameStateRef.current.paddle.speed = diffSettings.paddleSpeed;
+    gameStateRef.current.paddle = { x: 260, y: 550, width: 100, height: 14, speed: diffSettings.paddleSpeed };
     gameStateRef.current.score = 0;
     gameStateRef.current.coinsCollected = 0;
     gameStateRef.current.lives = 3;
@@ -392,10 +397,12 @@ export const TimeLimitGameCanvas = ({
         onGameOver?.(gameStateRef.current.score, gameStateRef.current.coinsCollected, timeBonus);
         return;
       } else {
+        // Reset ball with proper velocity
+        const resetSpeed = Math.max(diffSettings.ballSpeed, 3);
         ball.x = 300;
-        ball.y = 300;
-        ball.dx = diffSettings.ballSpeed;
-        ball.dy = -diffSettings.ballSpeed;
+        ball.y = 450;
+        ball.dx = resetSpeed * (Math.random() > 0.5 ? 1 : -1);
+        ball.dy = -resetSpeed;
       }
     }
 
