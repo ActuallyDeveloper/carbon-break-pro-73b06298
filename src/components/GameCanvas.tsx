@@ -213,6 +213,11 @@ export const GameCanvas = ({
       }
     }
 
+    // Ensure ball has proper initial velocity - always moving
+    const initialSpeed = Math.max(diffSettings.ballSpeed, 3);
+    const initialDx = initialSpeed * (Math.random() > 0.5 ? 1 : -1);
+    const initialDy = -initialSpeed; // Always moving upward initially
+
     gameStateRef.current.bricks = bricks;
     gameStateRef.current.coins = [];
     gameStateRef.current.powerUps = [];
@@ -222,16 +227,22 @@ export const GameCanvas = ({
     gameStateRef.current.ballTrail = [];
     gameStateRef.current.ball = { 
       x: 300, 
-      y: 300, 
-      dx: diffSettings.ballSpeed, 
-      dy: -diffSettings.ballSpeed, 
-      radius: 8 
+      y: 450, // Start ball closer to paddle
+      dx: initialDx, 
+      dy: initialDy, 
+      radius: 10 // Slightly larger ball for better visibility
     };
-    gameStateRef.current.paddle.speed = diffSettings.paddleSpeed;
-    gameStateRef.current.paddle.width = 80;
+    gameStateRef.current.paddle = { 
+      x: 260, 
+      y: 550, 
+      width: 100, // Wider paddle
+      height: 14, // Taller paddle
+      speed: diffSettings.paddleSpeed 
+    };
     gameStateRef.current.score = 0;
     gameStateRef.current.coinsCollected = 0;
     gameStateRef.current.lives = 3;
+    gameStateRef.current.frame = 0;
     setScore(0);
     setCoinsCollected(0);
     setLives(3);
@@ -303,18 +314,51 @@ export const GameCanvas = ({
     const backgroundItem = equippedItems?.background;
     const isDark = theme === 'dark';
     
+    // Always draw a base gradient background for better game feel
+    const baseGradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
+    if (isDark) {
+      baseGradient.addColorStop(0, 'hsl(240, 10%, 8%)');
+      baseGradient.addColorStop(0.5, 'hsl(240, 15%, 6%)');
+      baseGradient.addColorStop(1, 'hsl(240, 20%, 4%)');
+    } else {
+      baseGradient.addColorStop(0, 'hsl(220, 30%, 98%)');
+      baseGradient.addColorStop(0.5, 'hsl(220, 25%, 95%)');
+      baseGradient.addColorStop(1, 'hsl(220, 20%, 92%)');
+    }
+    ctx.fillStyle = baseGradient;
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    
+    // Draw subtle grid pattern
+    ctx.strokeStyle = isDark ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.03)';
+    ctx.lineWidth = 1;
+    for (let x = 0; x < canvas.width; x += 30) {
+      ctx.beginPath();
+      ctx.moveTo(x, 0);
+      ctx.lineTo(x, canvas.height);
+      ctx.stroke();
+    }
+    for (let y = 0; y < canvas.height; y += 30) {
+      ctx.beginPath();
+      ctx.moveTo(0, y);
+      ctx.lineTo(canvas.width, y);
+      ctx.stroke();
+    }
+    
     if (!backgroundItem) return;
     
     const bgTheme = backgroundItem.properties?.theme;
     
     switch (bgTheme) {
       case "space":
-        for (let i = 0; i < 50; i++) {
-          const x = ((frame + i * 50) % canvas.width);
-          const y = ((i * 30) % canvas.height);
+        for (let i = 0; i < 80; i++) {
+          const x = ((frame * 0.5 + i * 50) % canvas.width);
+          const y = ((i * 30 + Math.sin(i) * 20) % canvas.height);
+          const size = 1 + Math.random() * 2;
           ctx.fillStyle = isDark ? "#ffffff" : "#000000";
-          ctx.globalAlpha = 0.3 + Math.random() * 0.4;
-          ctx.fillRect(x, y, 2, 2);
+          ctx.globalAlpha = 0.2 + Math.sin(frame * 0.05 + i) * 0.3;
+          ctx.beginPath();
+          ctx.arc(x, y, size, 0, Math.PI * 2);
+          ctx.fill();
         }
         ctx.globalAlpha = 1;
         break;
@@ -322,12 +366,20 @@ export const GameCanvas = ({
       case "neon":
         ctx.strokeStyle = "#10b981";
         ctx.lineWidth = 2;
-        ctx.globalAlpha = 0.3;
-        for (let i = 0; i < 10; i++) {
-          const y = (i * 60 + frame % 60);
+        ctx.globalAlpha = 0.2;
+        for (let i = 0; i < 15; i++) {
+          const y = (i * 40 + (frame * 0.5) % 40);
           ctx.beginPath();
           ctx.moveTo(0, y);
           ctx.lineTo(canvas.width, y);
+          ctx.stroke();
+        }
+        ctx.strokeStyle = "#3b82f6";
+        for (let i = 0; i < 15; i++) {
+          const x = (i * 40 + (frame * 0.3) % 40);
+          ctx.beginPath();
+          ctx.moveTo(x, 0);
+          ctx.lineTo(x, canvas.height);
           ctx.stroke();
         }
         ctx.globalAlpha = 1;
@@ -335,22 +387,29 @@ export const GameCanvas = ({
         
       case "matrix":
         ctx.fillStyle = "#10b981";
-        ctx.font = "14px monospace";
-        ctx.globalAlpha = 0.15;
-        for (let i = 0; i < 15; i++) {
-          const x = i * 40;
-          const y = (frame * 2 % canvas.height);
-          ctx.fillText("01", x, y);
+        ctx.font = "12px monospace";
+        ctx.globalAlpha = 0.12;
+        for (let i = 0; i < 20; i++) {
+          const x = i * 30;
+          const speed = 1 + (i % 3);
+          const y = ((frame * speed) % (canvas.height + 100)) - 50;
+          const chars = "01";
+          for (let j = 0; j < 8; j++) {
+            ctx.fillText(chars[Math.floor(Math.random() * 2)], x, y + j * 14);
+          }
         }
         ctx.globalAlpha = 1;
         break;
         
       case "gradient":
-        const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
-        gradient.addColorStop(0, backgroundItem.properties?.color1 || "#1e293b");
-        gradient.addColorStop(1, backgroundItem.properties?.color2 || "#0f172a");
+        const gradient = ctx.createLinearGradient(0, 0, canvas.width, canvas.height);
+        gradient.addColorStop(0, backgroundItem.properties?.color1 || "hsl(240, 40%, 20%)");
+        gradient.addColorStop(0.5, backgroundItem.properties?.color2 || "hsl(280, 40%, 15%)");
+        gradient.addColorStop(1, backgroundItem.properties?.color1 || "hsl(240, 40%, 20%)");
         ctx.fillStyle = gradient;
+        ctx.globalAlpha = 0.8;
         ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.globalAlpha = 1;
         break;
     }
   };
@@ -511,104 +570,181 @@ export const GameCanvas = ({
   const drawBall = (ctx: CanvasRenderingContext2D, ball: any, frame: number) => {
     const ballColor = getItemColor('ball', frame);
     const ballItem = equippedItems?.ball;
+    const effect = ballItem?.properties?.effect;
+    const isDark = theme === 'dark';
     
+    // Draw outer glow for all balls
+    ctx.beginPath();
+    ctx.arc(ball.x, ball.y, ball.radius + 4, 0, Math.PI * 2);
+    const glowGrad = ctx.createRadialGradient(ball.x, ball.y, ball.radius * 0.5, ball.x, ball.y, ball.radius + 4);
+    glowGrad.addColorStop(0, 'transparent');
+    glowGrad.addColorStop(0.7, `${ballColor}40`);
+    glowGrad.addColorStop(1, 'transparent');
+    ctx.fillStyle = glowGrad;
+    ctx.fill();
+    
+    // Main ball
     ctx.beginPath();
     ctx.arc(ball.x, ball.y, ball.radius, 0, Math.PI * 2);
     
-    const effect = ballItem?.properties?.effect;
-    
     switch (effect) {
       case 'fire':
-        const fireGrad = ctx.createRadialGradient(ball.x, ball.y, 0, ball.x, ball.y, ball.radius);
-        fireGrad.addColorStop(0, '#ffff00');
+        const fireGrad = ctx.createRadialGradient(ball.x - ball.radius * 0.3, ball.y - ball.radius * 0.3, 0, ball.x, ball.y, ball.radius);
+        fireGrad.addColorStop(0, '#ffffff');
+        fireGrad.addColorStop(0.2, '#ffff00');
         fireGrad.addColorStop(0.5, '#ff6600');
         fireGrad.addColorStop(1, '#ff0000');
         ctx.fillStyle = fireGrad;
-        ctx.shadowBlur = 15;
+        ctx.shadowBlur = 20;
         ctx.shadowColor = '#ff4444';
         break;
         
       case 'ice':
-        const iceGrad = ctx.createRadialGradient(ball.x, ball.y, 0, ball.x, ball.y, ball.radius);
+        const iceGrad = ctx.createRadialGradient(ball.x - ball.radius * 0.3, ball.y - ball.radius * 0.3, 0, ball.x, ball.y, ball.radius);
         iceGrad.addColorStop(0, '#ffffff');
+        iceGrad.addColorStop(0.3, '#a5d8ff');
         iceGrad.addColorStop(1, '#3b82f6');
         ctx.fillStyle = iceGrad;
-        ctx.shadowBlur = 10;
+        ctx.shadowBlur = 15;
         ctx.shadowColor = '#3b82f6';
         break;
         
       case 'lightning':
-        ctx.fillStyle = ballColor;
-        ctx.shadowBlur = 15;
+        ctx.fillStyle = '#eab308';
+        ctx.shadowBlur = 20;
         ctx.shadowColor = '#eab308';
-        for (let i = 0; i < 3; i++) {
-          const angle = (frame + i * 120) * 0.1;
-          const x2 = ball.x + Math.cos(angle) * ball.radius * 1.5;
-          const y2 = ball.y + Math.sin(angle) * ball.radius * 1.5;
+        ctx.fill();
+        for (let i = 0; i < 4; i++) {
+          const angle = (frame * 0.15 + i * 90) * (Math.PI / 180) * 4;
+          const x2 = ball.x + Math.cos(angle) * ball.radius * 2;
+          const y2 = ball.y + Math.sin(angle) * ball.radius * 2;
           ctx.strokeStyle = '#eab308';
           ctx.lineWidth = 2;
+          ctx.globalAlpha = 0.7;
           ctx.beginPath();
           ctx.moveTo(ball.x, ball.y);
           ctx.lineTo(x2, y2);
           ctx.stroke();
+          ctx.globalAlpha = 1;
         }
         break;
         
       case 'glow':
         ctx.fillStyle = ballColor;
-        ctx.shadowBlur = 20;
+        ctx.shadowBlur = 25;
         ctx.shadowColor = ballColor;
         break;
         
       case 'rainbow':
-        const rainbowGrad = ctx.createRadialGradient(ball.x, ball.y, 0, ball.x, ball.y, ball.radius);
-        rainbowGrad.addColorStop(0, `hsl(${frame % 360}, 100%, 70%)`);
+        const rainbowGrad = ctx.createRadialGradient(ball.x - ball.radius * 0.3, ball.y - ball.radius * 0.3, 0, ball.x, ball.y, ball.radius);
+        rainbowGrad.addColorStop(0, '#ffffff');
+        rainbowGrad.addColorStop(0.3, `hsl(${frame % 360}, 100%, 70%)`);
         rainbowGrad.addColorStop(1, `hsl(${(frame + 60) % 360}, 100%, 50%)`);
         ctx.fillStyle = rainbowGrad;
-        ctx.shadowBlur = 10;
-        ctx.shadowColor = ballColor;
+        ctx.shadowBlur = 15;
+        ctx.shadowColor = `hsl(${frame % 360}, 100%, 50%)`;
         break;
         
       default:
-        ctx.fillStyle = ballColor;
+        // Beautiful default ball with 3D effect
+        const defaultGrad = ctx.createRadialGradient(
+          ball.x - ball.radius * 0.3, ball.y - ball.radius * 0.3, 0,
+          ball.x, ball.y, ball.radius
+        );
+        defaultGrad.addColorStop(0, isDark ? '#ffffff' : '#ffffff');
+        defaultGrad.addColorStop(0.4, ballColor);
+        defaultGrad.addColorStop(1, isDark ? 'hsl(240, 20%, 30%)' : 'hsl(220, 20%, 60%)');
+        ctx.fillStyle = defaultGrad;
+        ctx.shadowBlur = 8;
+        ctx.shadowColor = ballColor;
     }
     
     ctx.fill();
     ctx.shadowBlur = 0;
     ctx.closePath();
+    
+    // Add highlight
+    ctx.beginPath();
+    ctx.arc(ball.x - ball.radius * 0.3, ball.y - ball.radius * 0.3, ball.radius * 0.3, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
+    ctx.fill();
   };
 
   const drawPaddle = (ctx: CanvasRenderingContext2D, paddle: any, frame: number) => {
     const paddleColor = getItemColor('paddle', frame);
     const paddleItem = equippedItems?.paddle;
     const effect = paddleItem?.properties?.effect;
+    const isDark = theme === 'dark';
     
-    ctx.fillStyle = paddleColor;
+    // Draw paddle shadow
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
+    ctx.fillRect(paddle.x + 3, paddle.y + 3, paddle.width, paddle.height);
+    
+    // Draw paddle glow
+    ctx.shadowBlur = 15;
+    ctx.shadowColor = paddleColor;
+    
+    // Create 3D paddle with gradient
+    const paddleGrad = ctx.createLinearGradient(paddle.x, paddle.y, paddle.x, paddle.y + paddle.height);
+    paddleGrad.addColorStop(0, isDark ? '#ffffff' : '#ffffff');
+    paddleGrad.addColorStop(0.2, paddleColor);
+    paddleGrad.addColorStop(0.8, paddleColor);
+    paddleGrad.addColorStop(1, isDark ? 'hsl(240, 20%, 20%)' : 'hsl(220, 20%, 40%)');
     
     if (effect === 'glow') {
-      ctx.shadowBlur = 20;
+      ctx.shadowBlur = 30;
       ctx.shadowColor = paddleColor;
     } else if (effect === 'sparkle') {
-      ctx.shadowBlur = 10;
+      ctx.shadowBlur = 15;
       ctx.shadowColor = paddleColor;
-      for (let i = 0; i < 3; i++) {
+      for (let i = 0; i < 5; i++) {
         const sparkleX = paddle.x + Math.random() * paddle.width;
         const sparkleY = paddle.y + Math.random() * paddle.height;
         ctx.fillStyle = '#ffffff';
-        ctx.globalAlpha = Math.random() * 0.5 + 0.3;
-        ctx.fillRect(sparkleX, sparkleY, 2, 2);
+        ctx.globalAlpha = Math.random() * 0.6 + 0.3;
+        ctx.beginPath();
+        ctx.arc(sparkleX, sparkleY, 2, 0, Math.PI * 2);
+        ctx.fill();
       }
       ctx.globalAlpha = 1;
-      ctx.fillStyle = paddleColor;
     }
     
-    ctx.fillRect(paddle.x, paddle.y, paddle.width, paddle.height);
+    // Draw rounded paddle
+    const radius = paddle.height / 2;
+    ctx.beginPath();
+    ctx.moveTo(paddle.x + radius, paddle.y);
+    ctx.lineTo(paddle.x + paddle.width - radius, paddle.y);
+    ctx.arc(paddle.x + paddle.width - radius, paddle.y + radius, radius, -Math.PI / 2, Math.PI / 2);
+    ctx.lineTo(paddle.x + radius, paddle.y + paddle.height);
+    ctx.arc(paddle.x + radius, paddle.y + radius, radius, Math.PI / 2, -Math.PI / 2);
+    ctx.closePath();
+    ctx.fillStyle = paddleGrad;
+    ctx.fill();
+    
+    // Add highlight
+    ctx.beginPath();
+    ctx.moveTo(paddle.x + radius, paddle.y + 2);
+    ctx.lineTo(paddle.x + paddle.width - radius, paddle.y + 2);
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.5)';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    
     ctx.shadowBlur = 0;
     
     if (shieldActive) {
-      ctx.strokeStyle = 'rgba(59, 130, 246, 0.6)';
+      ctx.strokeStyle = 'rgba(59, 130, 246, 0.8)';
       ctx.lineWidth = 4;
-      ctx.strokeRect(paddle.x - 5, paddle.y - 5, paddle.width + 10, paddle.height + 10);
+      ctx.beginPath();
+      ctx.arc(paddle.x + paddle.width / 2, paddle.y + paddle.height / 2, paddle.width / 2 + 10, 0, Math.PI * 2);
+      ctx.stroke();
+      
+      // Shield pulse effect
+      const pulseSize = 5 + Math.sin(frame * 0.1) * 3;
+      ctx.globalAlpha = 0.3;
+      ctx.beginPath();
+      ctx.arc(paddle.x + paddle.width / 2, paddle.y + paddle.height / 2, paddle.width / 2 + 10 + pulseSize, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.globalAlpha = 1;
     }
   };
 
@@ -616,78 +752,132 @@ export const GameCanvas = ({
     const brickColor = getItemColor('brick', frame);
     const brickItem = equippedItems?.brick;
     const brickEffect = brickItem?.properties?.effect;
+    const isDark = theme === 'dark';
     
-    bricks.forEach((brick) => {
+    bricks.forEach((brick, index) => {
       if (!brick.active) return;
       
       ctx.globalAlpha = 1;
       ctx.shadowBlur = 0;
       
+      // Calculate row-based color variation for visual appeal
+      const row = Math.floor(index / 8);
+      const hueShift = row * 15;
+      
+      // Draw brick shadow
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.2)';
+      ctx.fillRect(brick.x + 2, brick.y + 2, brick.width, brick.height);
+      
       switch (brickEffect) {
         case 'glow':
-          ctx.shadowBlur = 12;
+          ctx.shadowBlur = 15;
           ctx.shadowColor = brickColor;
-          ctx.fillStyle = brickColor;
-          ctx.fillRect(brick.x, brick.y, brick.width, brick.height);
           break;
           
         case 'dissolve':
-          ctx.globalAlpha = 0.7 + Math.sin(frame * 0.1 + brick.x) * 0.3;
-          ctx.fillStyle = brickColor;
-          ctx.fillRect(brick.x, brick.y, brick.width, brick.height);
-          break;
-          
-        case 'particles':
-          ctx.fillStyle = brickColor;
-          ctx.fillRect(brick.x, brick.y, brick.width, brick.height);
-          for (let i = 0; i < 4; i++) {
-            const offsetX = Math.sin(frame * 0.05 + brick.x + i) * 4;
-            const offsetY = Math.cos(frame * 0.05 + brick.y + i) * 4;
-            ctx.globalAlpha = 0.5;
-            ctx.fillRect(
-              brick.x + brick.width / 2 + offsetX - 2,
-              brick.y + brick.height / 2 + offsetY - 2,
-              3, 3
-            );
-          }
-          ctx.globalAlpha = 1;
+          ctx.globalAlpha = 0.7 + Math.sin(frame * 0.1 + brick.x * 0.1) * 0.3;
           break;
           
         case 'explode':
         case 'explosion':
-          const pulseSize = Math.sin(frame * 0.15) * 2;
-          ctx.fillStyle = brickColor;
-          ctx.shadowBlur = 10;
+          const pulseSize = Math.sin(frame * 0.15 + index * 0.1) * 1.5;
+          ctx.shadowBlur = 12;
           ctx.shadowColor = '#ef4444';
-          ctx.fillRect(
-            brick.x - pulseSize,
-            brick.y - pulseSize,
-            brick.width + pulseSize * 2,
-            brick.height + pulseSize * 2
-          );
+          brick.width += pulseSize;
+          brick.height += pulseSize;
           break;
-          
-        case 'shatter':
-          ctx.fillStyle = brickColor;
-          ctx.fillRect(brick.x, brick.y, brick.width, brick.height);
-          ctx.strokeStyle = 'rgba(0, 0, 0, 0.3)';
-          ctx.lineWidth = 1;
+      }
+      
+      // Create 3D brick gradient
+      const brickGrad = ctx.createLinearGradient(brick.x, brick.y, brick.x, brick.y + brick.height);
+      const baseHue = brickColor.startsWith('hsl') ? brickColor : null;
+      
+      if (baseHue) {
+        brickGrad.addColorStop(0, `hsl(${(frame + hueShift) % 360}, 70%, 65%)`);
+        brickGrad.addColorStop(0.5, `hsl(${(frame + hueShift) % 360}, 70%, 50%)`);
+        brickGrad.addColorStop(1, `hsl(${(frame + hueShift) % 360}, 70%, 35%)`);
+      } else {
+        brickGrad.addColorStop(0, isDark ? lightenColor(brickColor, 30) : lightenColor(brickColor, 20));
+        brickGrad.addColorStop(0.5, brickColor);
+        brickGrad.addColorStop(1, isDark ? darkenColor(brickColor, 30) : darkenColor(brickColor, 20));
+      }
+      
+      ctx.fillStyle = brickGrad;
+      
+      // Draw rounded brick
+      const radius = 3;
+      ctx.beginPath();
+      ctx.moveTo(brick.x + radius, brick.y);
+      ctx.lineTo(brick.x + brick.width - radius, brick.y);
+      ctx.quadraticCurveTo(brick.x + brick.width, brick.y, brick.x + brick.width, brick.y + radius);
+      ctx.lineTo(brick.x + brick.width, brick.y + brick.height - radius);
+      ctx.quadraticCurveTo(brick.x + brick.width, brick.y + brick.height, brick.x + brick.width - radius, brick.y + brick.height);
+      ctx.lineTo(brick.x + radius, brick.y + brick.height);
+      ctx.quadraticCurveTo(brick.x, brick.y + brick.height, brick.x, brick.y + brick.height - radius);
+      ctx.lineTo(brick.x, brick.y + radius);
+      ctx.quadraticCurveTo(brick.x, brick.y, brick.x + radius, brick.y);
+      ctx.closePath();
+      ctx.fill();
+      
+      // Add highlight on top
+      ctx.beginPath();
+      ctx.moveTo(brick.x + radius, brick.y + 2);
+      ctx.lineTo(brick.x + brick.width - radius, brick.y + 2);
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.4)';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+      
+      // Add particles effect
+      if (brickEffect === 'particles') {
+        for (let i = 0; i < 3; i++) {
+          const offsetX = Math.sin(frame * 0.08 + brick.x + i) * 6;
+          const offsetY = Math.cos(frame * 0.08 + brick.y + i) * 6;
+          ctx.globalAlpha = 0.6;
+          ctx.fillStyle = '#ffffff';
           ctx.beginPath();
-          ctx.moveTo(brick.x, brick.y + brick.height / 2);
-          ctx.lineTo(brick.x + brick.width, brick.y + brick.height / 2);
-          ctx.moveTo(brick.x + brick.width / 2, brick.y);
-          ctx.lineTo(brick.x + brick.width / 2, brick.y + brick.height);
-          ctx.stroke();
-          break;
-          
-        default:
-          ctx.fillStyle = brickColor;
-          ctx.fillRect(brick.x, brick.y, brick.width, brick.height);
+          ctx.arc(brick.x + brick.width / 2 + offsetX, brick.y + brick.height / 2 + offsetY, 2, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      }
+      
+      // Shatter effect cracks
+      if (brickEffect === 'shatter') {
+        ctx.strokeStyle = 'rgba(0, 0, 0, 0.4)';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(brick.x + brick.width * 0.3, brick.y);
+        ctx.lineTo(brick.x + brick.width * 0.5, brick.y + brick.height);
+        ctx.moveTo(brick.x + brick.width * 0.7, brick.y);
+        ctx.lineTo(brick.x + brick.width * 0.4, brick.y + brick.height);
+        ctx.stroke();
       }
       
       ctx.globalAlpha = 1;
       ctx.shadowBlur = 0;
     });
+  };
+  
+  // Helper functions for color manipulation
+  const lightenColor = (color: string, percent: number): string => {
+    if (color.startsWith('#')) {
+      const num = parseInt(color.slice(1), 16);
+      const r = Math.min(255, ((num >> 16) & 255) + percent);
+      const g = Math.min(255, ((num >> 8) & 255) + percent);
+      const b = Math.min(255, (num & 255) + percent);
+      return `rgb(${r}, ${g}, ${b})`;
+    }
+    return color;
+  };
+  
+  const darkenColor = (color: string, percent: number): string => {
+    if (color.startsWith('#')) {
+      const num = parseInt(color.slice(1), 16);
+      const r = Math.max(0, ((num >> 16) & 255) - percent);
+      const g = Math.max(0, ((num >> 8) & 255) - percent);
+      const b = Math.max(0, (num & 255) - percent);
+      return `rgb(${r}, ${g}, ${b})`;
+    }
+    return color;
   };
 
   const drawParticles = (ctx: CanvasRenderingContext2D, particles: Particle[]) => {
@@ -929,11 +1119,12 @@ export const GameCanvas = ({
           onGameOver?.(gameStateRef.current.score, gameStateRef.current.coinsCollected);
           return;
         } else {
-          // Reset ball position
+          // Reset ball position with proper velocity
+          const resetSpeed = Math.max(diffSettings.ballSpeed, 3);
           ball.x = 300;
-          ball.y = 300;
-          ball.dx = diffSettings.ballSpeed;
-          ball.dy = -diffSettings.ballSpeed;
+          ball.y = 450;
+          ball.dx = resetSpeed * (Math.random() > 0.5 ? 1 : -1);
+          ball.dy = -resetSpeed;
         }
       }
     }
