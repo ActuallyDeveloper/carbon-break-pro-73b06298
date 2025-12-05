@@ -12,7 +12,8 @@ import { useInventory } from "@/hooks/useInventory";
 import { useGameSettings } from "@/hooks/useGameSettings";
 import { useUserPresence } from "@/hooks/useUserPresence";
 import { useAchievements } from "@/hooks/useAchievements";
-import { ArrowLeft, Users, Trophy } from "lucide-react";
+import { ArrowLeft, Users, Trophy, Zap } from "lucide-react";
+import { Difficulty } from "@/types/game";
 
 const MultiplayerRoomGame = () => {
   const { roomCode } = useParams<{ roomCode: string }>();
@@ -27,6 +28,7 @@ const MultiplayerRoomGame = () => {
   const [playerOneScore, setPlayerOneScore] = useState(0);
   const [playerTwoScore, setPlayerTwoScore] = useState(0);
   const [gameStarted, setGameStarted] = useState(false);
+  const [difficulty, setDifficulty] = useState<Difficulty>('medium');
 
   useEffect(() => {
     if (!roomCode || !user) return;
@@ -34,7 +36,6 @@ const MultiplayerRoomGame = () => {
     fetchRoom();
     updatePresence({ in_game: true, room_id: roomCode });
 
-    // Real-time subscriptions
     const roomChannel = supabase
       .channel(`room:${roomCode}`)
       .on(
@@ -46,8 +47,12 @@ const MultiplayerRoomGame = () => {
           filter: `room_code=eq.${roomCode}`,
         },
         (payload) => {
-          setRoom(payload.new);
-          if (payload.new && (payload.new as any).status === 'active') {
+          const newRoom = payload.new as any;
+          setRoom(newRoom);
+          if (newRoom?.difficulty) {
+            setDifficulty(newRoom.difficulty as Difficulty);
+          }
+          if (newRoom?.status === 'active') {
             setGameStarted(true);
           }
         }
@@ -87,6 +92,9 @@ const MultiplayerRoomGame = () => {
     }
 
     setRoom(data);
+    if (data.difficulty) {
+      setDifficulty(data.difficulty as Difficulty);
+    }
     if (data.status === 'active') {
       setGameStarted(true);
     }
@@ -131,10 +139,9 @@ const MultiplayerRoomGame = () => {
         })
         .eq('id', room.id);
 
-      // Update stats and achievements
       if (isWinner) {
         await updateProgress('games_won_multi', 1);
-        toast.success(`🏆 You won! Final Score: ${winner === 'player1' ? p1Score : p2Score}`);
+        toast.success(`You won! Final Score: ${winner === 'player1' ? p1Score : p2Score}`);
       } else {
         toast.info(`Game Over! Final Score: ${winner === 'player1' ? p2Score : p1Score}`);
       }
@@ -168,6 +175,8 @@ const MultiplayerRoomGame = () => {
   const isHost = user?.id === room.host_id;
   const canStart = isHost && players.length >= 2 && room.status === 'waiting';
 
+  const difficultyLabel = difficulty === 'easy' ? 'Easy' : difficulty === 'hard' ? 'Hard' : 'Medium';
+
   return (
     <Layout>
       <div className="space-y-6">
@@ -186,9 +195,15 @@ const MultiplayerRoomGame = () => {
               <Users className="h-8 w-8" />
               <h1 className="text-4xl font-bold">Room: {roomCode}</h1>
             </div>
-            <p className="text-lg text-muted-foreground">
-              {room.game_mode} • {players.length}/{room.max_players} Players
-            </p>
+            <div className="flex items-center gap-4">
+              <p className="text-lg text-muted-foreground">
+                {room.game_mode} • {players.length}/{room.max_players} Players
+              </p>
+              <div className="flex items-center gap-1 px-2 py-1 rounded bg-primary/10">
+                <Zap className="h-4 w-4 text-primary" />
+                <span className="text-sm font-medium">{difficultyLabel}</span>
+              </div>
+            </div>
           </div>
           <Card className="p-4">
             <div className="flex items-center gap-2">
@@ -228,6 +243,7 @@ const MultiplayerRoomGame = () => {
               playerOneScore={playerOneScore}
               playerTwoScore={playerTwoScore}
               enablePowerUps={settings.powerUps.enabled && settings.powerUps.multiplayer}
+              difficulty={difficulty}
             />
           </>
         )}

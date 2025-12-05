@@ -7,6 +7,7 @@ import { useGameSettings } from "@/hooks/useGameSettings";
 import { getDifficultySettings } from "@/lib/gameUtils";
 import { Coin, Brick, Difficulty } from "@/types/game";
 import { EquippedItems, PowerUp, PowerUpType } from "@/types/game";
+import { getGlobalSoundInstance } from "@/hooks/useSoundEffects";
 
 type GameCanvasProps = {
   onScoreUpdate?: (score: number) => void;
@@ -69,6 +70,7 @@ export const GameCanvas = ({
   
   const currentDifficulty = propDifficulty || settings.difficulty;
   const diffSettings = getDifficultySettings(currentDifficulty);
+  const soundRef = useRef(getGlobalSoundInstance());
   
   const gameStateRef = useRef({
     ball: { x: 300, y: 300, dx: diffSettings.ballSpeed, dy: -diffSettings.ballSpeed, radius: 8 },
@@ -890,9 +892,11 @@ export const GameCanvas = ({
 
     if (ball.x + ball.dx > canvas.width - ball.radius || ball.x + ball.dx < ball.radius) {
       ball.dx = -ball.dx;
+      soundRef.current?.playSound?.('ballHit');
     }
     if (ball.y + ball.dy < ball.radius) {
       ball.dy = -ball.dy;
+      soundRef.current?.playSound?.('ballHit');
     }
 
     if (
@@ -901,6 +905,7 @@ export const GameCanvas = ({
       ball.x < paddle.x + paddle.width
     ) {
       ball.dy = -ball.dy;
+      soundRef.current?.playSound?.('paddle');
     }
 
     if (ball.y + ball.dy > canvas.height) {
@@ -916,9 +921,11 @@ export const GameCanvas = ({
       } else {
         gameStateRef.current.lives--;
         setLives(gameStateRef.current.lives);
+        soundRef.current?.playSound?.('loseLife');
         
         if (gameStateRef.current.lives <= 0) {
           setIsPlaying(false);
+          soundRef.current?.playSound?.('gameOver');
           onGameOver?.(gameStateRef.current.score, gameStateRef.current.coinsCollected);
           return;
         } else {
@@ -944,6 +951,7 @@ export const GameCanvas = ({
           gameStateRef.current.score += 10;
           setScore(gameStateRef.current.score);
           onScoreUpdate?.(gameStateRef.current.score);
+          soundRef.current?.playSound?.('brickBreak');
 
           if (explosionItem) {
             const explosionType = explosionItem.properties?.type || explosionItem.properties?.effect;
@@ -1006,6 +1014,7 @@ export const GameCanvas = ({
           gameStateRef.current.coinsCollected += coin.value;
           setCoinsCollected(gameStateRef.current.coinsCollected);
           onCoinCollect?.(coin.value);
+          soundRef.current?.playSound?.('coin');
         }
 
         if (coin.y > canvas.height) {
@@ -1026,6 +1035,7 @@ export const GameCanvas = ({
         ) {
           powerUp.collected = true;
           activatePowerUp(powerUp.type);
+          soundRef.current?.playSound?.('powerUp');
         }
 
         if (powerUp.y > canvas.height) {

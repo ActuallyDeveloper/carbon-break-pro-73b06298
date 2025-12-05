@@ -233,6 +233,7 @@ export type Database = {
         Row: {
           created_at: string
           current_players: number
+          difficulty: string | null
           ended_at: string | null
           game_mode: string
           host_id: string
@@ -245,6 +246,7 @@ export type Database = {
         Insert: {
           created_at?: string
           current_players?: number
+          difficulty?: string | null
           ended_at?: string | null
           game_mode?: string
           host_id: string
@@ -257,6 +259,7 @@ export type Database = {
         Update: {
           created_at?: string
           current_players?: number
+          difficulty?: string | null
           ended_at?: string | null
           game_mode?: string
           host_id?: string

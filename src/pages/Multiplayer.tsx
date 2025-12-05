@@ -7,6 +7,7 @@ import { useGameRooms } from "@/hooks/useGameRooms";
 import { CreateRoomModal } from "@/components/CreateRoomModal";
 import { JoinRoomModal } from "@/components/JoinRoomModal";
 import { RoomLobby } from "@/components/RoomLobby";
+import { Difficulty } from "@/types/game";
 
 const Multiplayer = () => {
   const navigate = useNavigate();
@@ -24,8 +25,8 @@ const Multiplayer = () => {
     quickMatch,
   } = useGameRooms();
 
-  const handleCreateRoom = async (gameMode: string, maxPlayers: number) => {
-    const roomId = await createRoom(gameMode, maxPlayers);
+  const handleCreateRoom = async (gameMode: string, maxPlayers: number, difficulty: Difficulty) => {
+    const roomId = await createRoom(gameMode, maxPlayers, difficulty);
     if (roomId) {
       setShowCreateModal(false);
     }

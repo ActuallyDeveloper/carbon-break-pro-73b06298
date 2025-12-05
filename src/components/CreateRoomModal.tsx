@@ -4,13 +4,14 @@ import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Users, Gamepad2, Send } from 'lucide-react';
+import { Users, Gamepad2, Send, Zap } from 'lucide-react';
 import { useFriends } from '@/hooks/useFriends';
+import { Difficulty } from '@/types/game';
 
 interface CreateRoomModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onCreateRoom: (gameMode: string, maxPlayers: number) => Promise<string | null>;
+  onCreateRoom: (gameMode: string, maxPlayers: number, difficulty: Difficulty) => Promise<string | null>;
   loading?: boolean;
 }
 
@@ -21,19 +22,25 @@ const GAME_MODES = [
   { id: 'time_attack', name: 'Time Attack', description: '2 minute time limit' },
 ];
 
+const DIFFICULTIES = [
+  { id: 'easy', name: 'Easy', description: 'Slower ball, wider paddle' },
+  { id: 'medium', name: 'Medium', description: 'Balanced gameplay' },
+  { id: 'hard', name: 'Hard', description: 'Fast ball, narrow paddle' },
+];
+
 export const CreateRoomModal = ({ open, onOpenChange, onCreateRoom, loading }: CreateRoomModalProps) => {
   const { friends, sendGameInvite } = useFriends();
   const [gameMode, setGameMode] = useState('classic');
   const [maxPlayers, setMaxPlayers] = useState('2');
+  const [difficulty, setDifficulty] = useState<Difficulty>('medium');
   const [createdRoomId, setCreatedRoomId] = useState<string | null>(null);
   const [roomCode, setRoomCode] = useState<string | null>(null);
   const [selectedFriends, setSelectedFriends] = useState<string[]>([]);
 
   const handleCreate = async () => {
-    const roomId = await onCreateRoom(gameMode, parseInt(maxPlayers));
+    const roomId = await onCreateRoom(gameMode, parseInt(maxPlayers), difficulty);
     if (roomId) {
       setCreatedRoomId(roomId);
-      // Room code will be displayed after creation
     }
   };
 
@@ -61,7 +68,7 @@ export const CreateRoomModal = ({ open, onOpenChange, onCreateRoom, loading }: C
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Gamepad2 className="h-5 w-5" />
@@ -70,7 +77,7 @@ export const CreateRoomModal = ({ open, onOpenChange, onCreateRoom, loading }: C
         </DialogHeader>
 
         {!createdRoomId ? (
-          <div className="space-y-6">
+          <div className="space-y-5">
             <div className="space-y-3">
               <Label className="text-sm font-medium uppercase tracking-wider">Game Mode</Label>
               <RadioGroup value={gameMode} onValueChange={setGameMode} className="space-y-2">
@@ -89,6 +96,30 @@ export const CreateRoomModal = ({ open, onOpenChange, onCreateRoom, loading }: C
                       </Label>
                       <p className="text-xs text-muted-foreground">{mode.description}</p>
                     </div>
+                  </div>
+                ))}
+              </RadioGroup>
+            </div>
+
+            <div className="space-y-3">
+              <Label className="text-sm font-medium uppercase tracking-wider flex items-center gap-2">
+                <Zap className="h-4 w-4" />
+                Difficulty
+              </Label>
+              <RadioGroup value={difficulty} onValueChange={(v) => setDifficulty(v as Difficulty)} className="grid grid-cols-3 gap-2">
+                {DIFFICULTIES.map((diff) => (
+                  <div
+                    key={diff.id}
+                    className={`flex flex-col items-center p-3 rounded-lg cursor-pointer transition-colors text-center ${
+                      difficulty === diff.id ? 'border-2 border-primary bg-primary/5' : 'border border-border hover:border-muted-foreground'
+                    }`}
+                    onClick={() => setDifficulty(diff.id as Difficulty)}
+                  >
+                    <RadioGroupItem value={diff.id} id={`diff-${diff.id}`} className="sr-only" />
+                    <Label htmlFor={`diff-${diff.id}`} className="font-medium cursor-pointer text-sm">
+                      {diff.name}
+                    </Label>
+                    <p className="text-[10px] text-muted-foreground mt-1">{diff.description}</p>
                   </div>
                 ))}
               </RadioGroup>

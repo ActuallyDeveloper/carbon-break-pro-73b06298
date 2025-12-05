@@ -14,7 +14,7 @@ const defaultSettings: SoundSettings = {
   enabled: true,
 };
 
-// Sound URLs - using free sound effects
+// Sound URLs - using free sound effects from Mixkit (royalty-free)
 const SOUNDS = {
   ballHit: 'https://assets.mixkit.co/active_storage/sfx/2571/2571-preview.mp3',
   brickBreak: 'https://assets.mixkit.co/active_storage/sfx/2020/2020-preview.mp3',
@@ -24,6 +24,7 @@ const SOUNDS = {
   coin: 'https://assets.mixkit.co/active_storage/sfx/2003/2003-preview.mp3',
   win: 'https://assets.mixkit.co/active_storage/sfx/1435/1435-preview.mp3',
   paddle: 'https://assets.mixkit.co/active_storage/sfx/2572/2572-preview.mp3',
+  loseLife: 'https://assets.mixkit.co/active_storage/sfx/2004/2004-preview.mp3',
 };
 
 export type SoundType = keyof typeof SOUNDS;

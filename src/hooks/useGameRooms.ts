@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/lib/auth';
 import { toast } from 'sonner';
+import { Difficulty } from '@/types/game';
 
 interface GameRoom {
   id: string;
@@ -12,6 +13,7 @@ interface GameRoom {
   current_players: number;
   status: string;
   created_at: string;
+  difficulty?: string;
   host?: { username: string };
 }
 
@@ -142,7 +144,7 @@ export const useGameRooms = () => {
     };
   }, [currentRoom?.id, fetchRoomPlayers]);
 
-  const createRoom = async (gameMode: string, maxPlayers: number): Promise<string | null> => {
+  const createRoom = async (gameMode: string, maxPlayers: number, difficulty: Difficulty = 'medium'): Promise<string | null> => {
     if (!user) return null;
     setLoading(true);
 
@@ -156,6 +158,7 @@ export const useGameRooms = () => {
           host_id: user.id,
           game_mode: gameMode,
           max_players: maxPlayers,
+          difficulty: difficulty,
         })
         .select()
         .single();
