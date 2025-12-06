@@ -2,7 +2,8 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { useAuth } from '@/lib/auth';
 import { useFriends } from '@/hooks/useFriends';
-import { Users, Crown, Check, X, Send, Play, LogOut } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { Users, Crown, Check, X, Send, Play, LogOut, Eye } from 'lucide-react';
 
 interface RoomPlayer {
   id: string;
@@ -34,9 +35,14 @@ interface RoomLobbyProps {
 export const RoomLobby = ({ room, players, onStartGame, onLeaveRoom, onNavigateToGame }: RoomLobbyProps) => {
   const { user } = useAuth();
   const { friends, sendGameInvite } = useFriends();
+  const navigate = useNavigate();
   const isHost = user?.id === room.host_id;
   const canStart = players.length >= 2 && isHost;
   const acceptedFriends = friends.filter(f => f.status === 'accepted');
+
+  const handleSpectate = () => {
+    navigate(`/multiplayer/spectate/${room.id}`);
+  };
 
   const handleInviteFriend = async (friendId: string) => {
     await sendGameInvite(friendId, room.id);
@@ -161,6 +167,11 @@ export const RoomLobby = ({ room, players, onStartGame, onLeaveRoom, onNavigateT
         <Button variant="outline" onClick={onLeaveRoom} className="gap-2">
           <LogOut className="h-4 w-4" />
           Leave Room
+        </Button>
+        
+        <Button variant="secondary" onClick={handleSpectate} className="gap-2">
+          <Eye className="h-4 w-4" />
+          Spectate
         </Button>
         
         {isHost && (

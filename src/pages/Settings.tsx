@@ -3,19 +3,23 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
-import { Settings as SettingsIcon, User, Gamepad2, Zap, Volume2, VolumeX } from "lucide-react";
+import { Settings as SettingsIcon, User, Gamepad2, Zap, Volume2, VolumeX, Music, BookOpen } from "lucide-react";
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { toast } from "sonner";
 import { useGameSettings } from "@/hooks/useGameSettings";
 import { useSoundEffects } from "@/hooks/useSoundEffects";
+import { useBackgroundMusic, MusicTrack } from "@/hooks/useBackgroundMusic";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { useNavigate } from "react-router-dom";
 
 const Settings = () => {
+  const navigate = useNavigate();
   const { user } = useAuth();
   const { settings, updateSettings } = useGameSettings();
   const { settings: soundSettings, updateSettings: updateSoundSettings, playSound } = useSoundEffects();
+  const music = useBackgroundMusic();
   const [username, setUsername] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -56,6 +60,11 @@ const Settings = () => {
 
   const testSound = () => {
     playSound('coin');
+  };
+
+  const resetTutorial = () => {
+    localStorage.removeItem('tutorialCompleted');
+    toast.success("Tutorial reset! Go to the tutorial page to replay it.");
   };
 
   return (
@@ -140,6 +149,76 @@ const Settings = () => {
                   <Button variant="secondary" size="sm" onClick={testSound}>
                     Test Sound
                   </Button>
+                </>
+              )}
+            </div>
+          </div>
+
+          {/* Background Music Section */}
+          <div className="bg-card p-6 space-y-4">
+            <div className="flex items-center gap-2">
+              <Music className="h-5 w-5" />
+              <h2 className="text-xl font-bold uppercase">Background Music</h2>
+            </div>
+            
+            <div className="space-y-6">
+              <div className="flex items-center justify-between">
+                <div className="space-y-1">
+                  <Label>Enable Music</Label>
+                  <p className="text-sm text-muted-foreground">Play background music during gameplay</p>
+                </div>
+                <Button
+                  variant={music.settings.enabled ? "default" : "secondary"}
+                  size="sm"
+                  onClick={() => music.updateSettings({ enabled: !music.settings.enabled })}
+                >
+                  {music.settings.enabled ? <Music className="h-4 w-4" /> : <VolumeX className="h-4 w-4" />}
+                </Button>
+              </div>
+
+              {music.settings.enabled && (
+                <>
+                  <div className="space-y-2">
+                    <Label>Select Track</Label>
+                    <Select
+                      value={music.settings.currentTrack}
+                      onValueChange={(value) => music.setTrack(value as MusicTrack)}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {Object.entries(music.tracks).map(([key, track]) => (
+                          <SelectItem key={key} value={key}>
+                            {track.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-3">
+                    <div className="flex justify-between">
+                      <Label>Music Volume</Label>
+                      <span className="text-sm text-muted-foreground">{Math.round(music.settings.musicVolume * 100)}%</span>
+                    </div>
+                    <Slider
+                      value={[music.settings.musicVolume * 100]}
+                      onValueChange={([v]) => music.updateSettings({ musicVolume: v / 100 })}
+                      max={100}
+                      step={5}
+                    />
+                  </div>
+
+                  <div className="flex gap-2">
+                    <Button 
+                      variant={music.isPlaying ? "default" : "secondary"} 
+                      size="sm" 
+                      onClick={music.toggle}
+                    >
+                      {music.isPlaying ? "Pause" : "Play"} Music
+                    </Button>
+                  </div>
                 </>
               )}
             </div>
@@ -279,6 +358,29 @@ const Settings = () => {
                   </div>
                 </>
               )}
+            </div>
+          </div>
+
+          {/* Tutorial Section */}
+          <div className="bg-card p-6 space-y-4">
+            <div className="flex items-center gap-2">
+              <BookOpen className="h-5 w-5" />
+              <h2 className="text-xl font-bold uppercase">Tutorial</h2>
+            </div>
+            
+            <div className="space-y-4">
+              <p className="text-sm text-muted-foreground">
+                Learn how to play with our step-by-step tutorial.
+              </p>
+              <div className="flex gap-2">
+                <Button onClick={() => navigate('/tutorial')} className="gap-2">
+                  <BookOpen className="h-4 w-4" />
+                  Open Tutorial
+                </Button>
+                <Button variant="secondary" onClick={resetTutorial}>
+                  Reset Tutorial
+                </Button>
+              </div>
             </div>
           </div>
         </div>

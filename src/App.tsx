@@ -24,6 +24,8 @@ import Stats from "./pages/Stats";
 import Settings from "./pages/Settings";
 import About from "./pages/About";
 import NotFound from "./pages/NotFound";
+import SpectatorMode from "./components/SpectatorMode";
+import Tutorial from "./pages/Tutorial";
 
 const queryClient = new QueryClient();
 
@@ -44,6 +46,7 @@ const App = () => (
               <Route path="/multiplayer/:matchId" element={<MultiplayerGame />} />
               <Route path="/multiplayer/game/:roomId" element={<MultiplayerRoomGame />} />
               <Route path="/multiplayer/room/:roomCode/game" element={<MultiplayerRoomGame />} />
+              <Route path="/multiplayer/spectate/:roomId" element={<SpectatorMode />} />
               <Route path="/single-player-shop" element={<SinglePlayerShopPage />} />
               <Route path="/multiplayer-shop" element={<MultiplayerShopPage />} />
               <Route path="/tournaments" element={<Tournaments />} />
@@ -56,6 +59,7 @@ const App = () => (
               <Route path="/stats" element={<Stats />} />
               <Route path="/settings" element={<Settings />} />
               <Route path="/about" element={<About />} />
+              <Route path="/tutorial" element={<Tutorial />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
           </BrowserRouter>
