@@ -66,15 +66,20 @@ export const GameCanvas = ({
   const [activePowerUps, setActivePowerUps] = useState<Set<PowerUpType>>(new Set());
   const [shieldActive, setShieldActive] = useState(false);
   const [screenShake, setScreenShake] = useState({ x: 0, y: 0 });
+  const [screenFlash, setScreenFlash] = useState<{ color: string; alpha: number } | null>(null);
   const animationRef = useRef<number>();
+  const gameStartedRef = useRef(false);
   
   const currentDifficulty = propDifficulty || settings.difficulty;
   const diffSettings = getDifficultySettings(currentDifficulty);
   const soundRef = useRef(getGlobalSoundInstance());
   
+  // Initialize with proper speed values
+  const initialSpeed = Math.max(diffSettings.ballSpeed, 3);
+  
   const gameStateRef = useRef({
-    ball: { x: 300, y: 300, dx: diffSettings.ballSpeed, dy: -diffSettings.ballSpeed, radius: 8 },
-    paddle: { x: 260, y: 550, width: 80, height: 10, speed: diffSettings.paddleSpeed },
+    ball: { x: 300, y: 450, dx: initialSpeed, dy: -initialSpeed, radius: 10 },
+    paddle: { x: 250, y: 550, width: 100, height: 14, speed: diffSettings.paddleSpeed },
     bricks: [] as Brick[],
     coins: [] as Coin[],
     powerUps: [] as PowerUp[],
@@ -86,6 +91,7 @@ export const GameCanvas = ({
     coinsCollected: 0,
     lives: 3,
     frame: 0,
+    gameActive: false,
   });
 
   // Get item rarity from equipped items
@@ -127,8 +133,62 @@ export const GameCanvas = ({
     }
   }, []);
 
+  const triggerScreenFlash = (color: string, alpha: number = 0.3) => {
+    setScreenFlash({ color, alpha });
+    setTimeout(() => setScreenFlash(null), 150);
+  };
+
+  const createCoinParticles = (x: number, y: number, value: number) => {
+    const particleCount = 10 + value * 2;
+    for (let i = 0; i < particleCount; i++) {
+      const angle = (Math.PI * 2 * i) / particleCount;
+      const speed = 1.5 + Math.random() * 2.5;
+      gameStateRef.current.particles.push({
+        x,
+        y,
+        vx: Math.cos(angle) * speed,
+        vy: Math.sin(angle) * speed - 1,
+        life: 40 + Math.random() * 20,
+        color: '#ffd700',
+        size: 3 + Math.random() * 3,
+      });
+    }
+    triggerScreenFlash('rgba(255, 215, 0, 0.3)', 0.25);
+  };
+
+  const createPowerUpParticles = (x: number, y: number, type: PowerUpType) => {
+    const colors: Record<PowerUpType, string> = {
+      multiBall: '#ef4444',
+      paddleSize: '#3b82f6',
+      slowBall: '#10b981',
+      shield: '#8b5cf6',
+    };
+    const color = colors[type];
+    
+    for (let ring = 0; ring < 2; ring++) {
+      const particleCount = 15 + ring * 5;
+      for (let i = 0; i < particleCount; i++) {
+        const angle = (Math.PI * 2 * i) / particleCount;
+        const speed = 2.5 + ring * 1.5;
+        gameStateRef.current.particles.push({
+          x,
+          y,
+          vx: Math.cos(angle) * speed,
+          vy: Math.sin(angle) * speed,
+          life: 50 + Math.random() * 25,
+          color,
+          size: 3 + Math.random() * 4,
+        });
+      }
+    }
+    triggerScreenFlash(color + '40', 0.4);
+  };
+
   const activatePowerUp = (type: PowerUpType) => {
     const { ball, paddle, balls } = gameStateRef.current;
+    
+    // Create power-up activation particles
+    createPowerUpParticles(paddle.x + paddle.width / 2, paddle.y, type);
     
     switch (type) {
       case 'multiBall':
@@ -139,7 +199,7 @@ export const GameCanvas = ({
         break;
       case 'paddleSize':
         paddle.width = Math.min(paddle.width + 40, 200);
-        setTimeout(() => { paddle.width = 80; }, 10000);
+        setTimeout(() => { paddle.width = 100; }, 10000);
         break;
       case 'slowBall':
         const originalDx = ball.dx;
@@ -213,10 +273,11 @@ export const GameCanvas = ({
       }
     }
 
-    // Ensure ball has proper initial velocity - always moving
-    const initialSpeed = Math.max(diffSettings.ballSpeed, 3);
-    const initialDx = initialSpeed * (Math.random() > 0.5 ? 1 : -1);
-    const initialDy = -initialSpeed; // Always moving upward initially
+    // FIXED: Ensure ball ALWAYS has proper initial velocity
+    const speed = Math.max(diffSettings.ballSpeed, 4);
+    const randomAngle = -Math.PI / 4 - Math.random() * Math.PI / 2; // Between -45 and -135 degrees (upward)
+    const ballDx = Math.cos(randomAngle) * speed;
+    const ballDy = Math.sin(randomAngle) * speed;
 
     gameStateRef.current.bricks = bricks;
     gameStateRef.current.coins = [];
@@ -227,28 +288,31 @@ export const GameCanvas = ({
     gameStateRef.current.ballTrail = [];
     gameStateRef.current.ball = { 
       x: 300, 
-      y: 450, // Start ball closer to paddle
-      dx: initialDx, 
-      dy: initialDy, 
-      radius: 10 // Slightly larger ball for better visibility
+      y: 480,
+      dx: ballDx, 
+      dy: ballDy, 
+      radius: 10
     };
     gameStateRef.current.paddle = { 
-      x: 260, 
+      x: 250, 
       y: 550, 
-      width: 100, // Wider paddle
-      height: 14, // Taller paddle
-      speed: diffSettings.paddleSpeed 
+      width: 100,
+      height: 14,
+      speed: Math.max(diffSettings.paddleSpeed, 15)
     };
     gameStateRef.current.score = 0;
     gameStateRef.current.coinsCollected = 0;
     gameStateRef.current.lives = 3;
     gameStateRef.current.frame = 0;
+    gameStateRef.current.gameActive = true;
+    gameStartedRef.current = false;
     setScore(0);
     setCoinsCollected(0);
     setLives(3);
     setActivePowerUps(new Set());
     setShieldActive(false);
     setScreenShake({ x: 0, y: 0 });
+    setScreenFlash(null);
   }, [diffSettings]);
 
   const getItemColor = (itemType: 'paddle' | 'ball' | 'brick', frame: number): string => {
